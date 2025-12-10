@@ -103,13 +103,21 @@ class FilterAi(BaseFilter[FilterAiConfig]):
         ).hexdigest()[:16]
         
         return f"{img_hash}_{settings_hash}"
-
-    def _image_to_base64(self, image: Image.Image, format: str = "PNG") -> str:
-        """Convert PIL Image to base64 string."""
+    
+    def _image_to_bytes(self, image: Image.Image, format: str = "png") -> bytes:
         buffer = io.BytesIO()
         image.save(buffer, format=format)
-        img_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        return img_str
+        return buffer.getvalue()
+
+    def _image_to_base64(self, image: Image.Image, format: str = "jpeg") -> bytes:
+        """Convert PIL Image to base64 string."""
+        buffer = io.BytesIO()
+        # Ensure image is in RGB mode
+        if image.mode in ('RGBA', 'LA', 'P'):
+            image = image.convert('RGB')
+        image.save(buffer, format=format)
+        b64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        return b64_image
 
     def _base64_to_image(self, base64_str: str) -> Image.Image:
         """Convert base64 string to PIL Image."""
@@ -118,39 +126,54 @@ class FilterAi(BaseFilter[FilterAiConfig]):
         return image
 
     def _apply_openai_filter(self, image: Image.Image, filter_type: ai_generation_type, preview: bool) -> Image.Image:
-        """Apply filter using OpenAI DALL-E."""
+        """Apply filter using OpenAI DALL-E or GPT-Image-1."""
         if not self._config.openai_api_key:
             raise ValueError("OpenAI API key not configured")
+        model = self._config.openai_model
 
-        # For preview mode, we might want to use a smaller/faster processing
-        size = "256x256" if preview else "1024x1024"
+        # For preview mode, for now we just return the normal image...
+        #size = "256x256" if model == "dall-e-2" and preview  else "1024x1024"
+        if preview:
+            return image
+        size = "auto"
         
         # Get style prompt for this filter type
         style_prompt = self._config.style_prompts.get(filter_type, "professional photography")
-        prompt = f"Transform this image with {style_prompt}"
+        prompt = f"{style_prompt}"
 
-        # Convert image to base64
-        base64_image = self._image_to_base64(image)
+        #Convert image to bytes
+        image_bytes = self._image_to_bytes(image)
+
 
         headers = {
-            "Authorization": f"Bearer {self._config.openai_api_key}",
-            "Content-Type": "application/json"
+            "Authorization": f"Bearer {self._config.openai_api_key}"
         }
 
-        # Note: This is a simplified example. OpenAI's actual API for image editing
-        # may require different endpoints and parameters
-        data = {
-            "model": self._config.openai_model,
-            "image": base64_image,
-            "prompt": prompt,
-            "size": size,
-            "response_format": "b64_json"
+        
+        files = {
+            "model": (None, model),
+            "prompt": (None, prompt),
+            "n": (None, 1),
+            "size": (None, size), #TODO: Make configurable
+            "quality": (None, "high"), #TODO: Make configurable
+            "input_fidelity": (None, "high"), #TODO: Make configurable
+            "output_format": (None, "jpeg"), #TODO: Make configurable
         }
-
+        # Model-specific setup
+        if model == "dall-e-2":
+            files["response_format"] = (None, "b64_json") #TODO: Make configurable
+        if model == "gpt-image-1":
+            files["moderation"] = (None, "low") #TODO: Make configurable
+        
+        logging.info("Sending request to OpenAI API... with following parameters: %s", files)
+        
+        # Hard-code image mimeType and name for now
+        files["image"] = ("image", image_bytes, "image/png")
+        
         response = requests.post(
             "https://api.openai.com/v1/images/edits",
             headers=headers,
-            json=data,
+            files=files,
             timeout=self._config.timeout_seconds
         )
         

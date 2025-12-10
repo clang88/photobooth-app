@@ -179,7 +179,7 @@ requires = ["uv_build>=0.8.3,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-modules = ["photobooth", "web"]
+module-name = "photobooth"
 
 # [tool.uv.sources]
 # wigglecam = { path = "../photobooth-wigglecam", editable = true }

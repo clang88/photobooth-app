@@ -59,9 +59,9 @@ class FilterAiConfig(BaseConfig):
         description="OpenAI API key for DALL-E image processing. Required when using OpenAI provider.",
     )
     
-    openai_model: str = Field(
-        default="dall-e-3",
-        description="OpenAI model to use (dall-e-2, dall-e-3).",
+    openai_model: Literal["dall-e-2", "gpt-image-1"] = Field(
+        default="gpt-image-1",
+        description="OpenAI model to use (dall-e-2, gpt-image-1).",
     )
 
     # Stability AI Configuration  
@@ -100,11 +100,11 @@ class FilterAiConfig(BaseConfig):
     timeout_seconds: int = Field(
         default=30,
         ge=5,
-        le=120,
+        le=300,
         description="Timeout for AI API calls in seconds.",
     )
 
-    # Style prompts for different filter types
+    # Style prompts for different filter types #TODO: Change from dict to something else, not supported on UI
     style_prompts: dict[str, str] = Field(
         default={
             "style_transfer": "artistic style transfer, maintain subject, professional photography",
@@ -116,7 +116,7 @@ class FilterAiConfig(BaseConfig):
             "vintage": "vintage photography, sepia tones, retro aesthetic",
             "cyberpunk": "cyberpunk style, neon lights, futuristic, sci-fi aesthetic",
             "fantasy": "fantasy art, magical, ethereal, mystical atmosphere",
-            "anime": "anime style, manga illustration, japanese animation style"
+            "anime": "Redraw this portrait in Studio Ghibli style, vibrant colors and handdrawn aesthetic."
         },
         description="Prompt templates for different AI filter styles. These guide the AI generation process.",
     )
