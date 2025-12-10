@@ -65,6 +65,8 @@ dependencies = [
   "wigglecam",                                                                      # to use the imagemessagedataclass, no dependencies in base module
   "pynng",                                                                          # needs python3-dev package
   "niquests>=3.15.0",                                                               # niquests add to the end because it overshadows urllib3 by urllib3-future (wigglecam uses normal urllib3 for now)
+  "openai>=1.0.0",                                                                  # for AI image generation filters
+  "requests>=2.25.0",                                                               # for AI API calls (already likely included)
 ]
 
 [project.scripts]
@@ -75,6 +77,7 @@ commander = 'photobooth.plugins.commander.commander'
 gpio_lights = 'photobooth.plugins.gpio_lights.gpio_lights'
 wled = 'photobooth.plugins.wled.wled'
 filter_pilgram2 = 'photobooth.plugins.filter_pilgram2.filter_pilgram2'
+filter_ai = 'photobooth.plugins.filter_ai.filter_ai'
 synchronizer = 'photobooth.plugins.synchronizer.synchronizer'
 
 
@@ -176,7 +179,7 @@ requires = ["uv_build>=0.8.3,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = ["photobooth", "web"]
+modules = ["photobooth", "web"]
 
 # [tool.uv.sources]
 # wigglecam = { path = "../photobooth-wigglecam", editable = true }
