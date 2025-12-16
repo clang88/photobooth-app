@@ -227,12 +227,14 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         requested_params = {
             "model": model,
             "prompt": prompt,
-            "n": 1,
+            "n": self._config.number_of_images,
             "size": self._config.image_size,
             "quality": self._config.image_quality,
-            "input_fidelity": "high",
-            "output_format": "jpeg",
-            "response_format": "b64_json",  # For dall-e-2 compatibility
+            "input_fidelity": self._config.input_fidelity,
+            "output_format": self._config.output_format,
+            "background": self._config.background,
+            "output_compression": self._config.output_compression,
+            "response_format": self._config.response_format,
         }
 
         # Filter parameters based on model capabilities

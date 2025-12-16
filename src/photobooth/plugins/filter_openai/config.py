@@ -61,6 +61,41 @@ class FilterOpenAiConfig(BaseConfig):
         description="Size of generated images. 'auto' lets the model choose optimal size. Available sizes depend on the selected model.",
     )
 
+    # Advanced image generation settings
+    output_format: Literal["png", "jpeg", "webp"] = Field(
+        default="jpeg",
+        description="Output format for generated images (GPT models only). PNG supports transparency, JPEG is smaller, WEBP offers good compression with quality.",
+    )
+
+    input_fidelity: Literal["high", "low"] = Field(
+        default="low",
+        description="Control how much effort the model exerts to match input image style and features. 'high' preserves more details but takes longer. Only supported by gpt-image-1 and gpt-image-1.5.",
+    )
+
+    background: Literal["auto", "transparent", "opaque"] = Field(
+        default="auto",
+        description="Background transparency setting for generated images. 'transparent' creates images with transparent backgrounds, 'opaque' forces solid background. Only supported by GPT models.",
+    )
+
+    number_of_images: int = Field(
+        default=1,
+        ge=1,
+        le=10,
+        description="Number of images to generate per request. Note: Only one image is used by the photobooth, but generating multiple can provide alternatives. DALL-E-3 only supports n=1.",
+    )
+
+    output_compression: int = Field(
+        default=85,
+        ge=0,
+        le=100,
+        description="Compression level (0-100%) for generated images when using JPEG or WebP format. Higher values = better quality but larger files. Only supported by GPT models.",
+    )
+
+    response_format: Literal["url", "b64_json"] = Field(
+        default="b64_json",
+        description="Format for receiving generated images. 'b64_json' embeds image data directly (recommended), 'url' provides temporary download links (60min expiry). GPT models always use b64_json.",
+    )
+
     # Style prompts for different filter types
     style_prompts: list[StylePrompt] = Field(
         default=[
