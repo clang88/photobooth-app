@@ -34,7 +34,7 @@ def test_mp_avail_filter(filter_openai_plugin):
 
     assert len(filters) > 0
     assert any("sketch" in f for f in filters)
-    assert any("enhance" in f for f in filters)
+    assert any("cartoon" in f for f in filters)
 
 
 def test_mp_userselectable_filter_enabled(filter_openai_plugin):

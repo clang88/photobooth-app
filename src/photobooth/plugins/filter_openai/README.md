@@ -136,8 +136,7 @@ pytest src/tests/tests/plugins/test_filter_openai.py -v
 
 ## Dependencies
 
-- `openai`: OpenAI API client
-- `requests`: HTTP requests for API calls
+- `niquests`: HTTP requests for OpenAI API calls (uses niquests instead of requests for better HTTP/2 support)
 - `Pillow`: Image processing
 - `base64`: Image encoding for API transmission
 

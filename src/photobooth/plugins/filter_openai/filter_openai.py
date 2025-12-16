@@ -3,7 +3,7 @@ import hashlib
 import io
 import logging
 
-import requests
+import niquests as requests
 from PIL import Image
 
 from photobooth.plugins import hookimpl
@@ -300,7 +300,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
                 raise RuntimeError("Invalid response format from OpenAI API")
 
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Request to OpenAI API failed: {e}")
+            raise RuntimeError(f"Request to OpenAI API failed: {e}") from e
 
     def clear_cache(self):
         """Clear the image cache."""
