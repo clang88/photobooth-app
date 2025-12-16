@@ -116,7 +116,7 @@ Once configured, AI filters will appear in the photobooth filter selection along
 
 Check the photobooth logs for detailed error messages:
 ```
-tail -f photobooth.log | grep "filter_ai"
+tail -f photobooth.log | grep "filter_openai"
 ```
 
 ## Development
@@ -125,7 +125,7 @@ tail -f photobooth.log | grep "filter_ai"
 
 Run the plugin tests:
 ```bash
-pytest src/tests/tests/plugins/test_filter_ai.py -v
+pytest src/tests/tests/plugins/test_filter_openai.py -v
 ```
 
 ### Adding New Styles
