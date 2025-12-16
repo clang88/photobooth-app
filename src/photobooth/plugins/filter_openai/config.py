@@ -38,16 +38,27 @@ class FilterOpenAiConfig(BaseConfig):
         description="OpenAI API key for DALL-E image processing. Required when using OpenAI provider.",
     )
 
-    openai_model: Literal["dall-e-2", "gpt-image-1"] = Field(
+    openai_model: Literal["dall-e-2", "gpt-image-1", "gpt-image-1-mini", "gpt-image-1.5"] = Field(
         default="gpt-image-1",
         description="OpenAI model to use (dall-e-2, gpt-image-1).",
     )
 
     timeout_seconds: int = Field(
-        default=30,
+        default=120,
         ge=5,
         le=300,
         description="Timeout for AI API calls in seconds.",
+    )
+
+    # Image generation settings
+    image_quality: Literal["auto", "high", "medium", "low", "standard", "hd"] = Field(
+        default="auto",
+        description="Quality of generated images. 'auto' lets the model choose the best quality. GPT models support high/medium/low, DALL-E-3 supports hd/standard, DALL-E-2 only supports standard.",
+    )
+
+    image_size: Literal["auto", "1024x1024", "1536x1024", "1024x1536", "256x256", "512x512", "1792x1024", "1024x1792"] = Field(
+        default="auto",
+        description="Size of generated images. 'auto' lets the model choose optimal size. Available sizes depend on the selected model.",
     )
 
     # Style prompts for different filter types

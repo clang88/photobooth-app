@@ -15,6 +15,73 @@ from .config import FilterOpenAiConfig, ai_generation_type
 logger = logging.getLogger(__name__)
 
 
+# Model-specific parameter configuration
+MODEL_CONFIG = {
+    "dall-e-2": {
+        "supported_params": {"model", "prompt", "n", "size", "response_format", "user"},
+        "defaults": {
+            "size": "1024x1024",
+            "quality": "standard",  # Only standard supported
+            "response_format": "b64_json",
+        },
+        "size_options": ["256x256", "512x512", "1024x1024"],
+    },
+    "gpt-image-1": {
+        "supported_params": {
+            "model",
+            "prompt",
+            "n",
+            "size",
+            "quality",
+            "output_format",
+            "background",
+            "input_fidelity",
+            "output_compression",
+            "partial_images",
+            "stream",
+            "user",
+        },
+        "defaults": {"size": "auto", "quality": "auto", "output_format": "png", "input_fidelity": "low"},
+        "size_options": ["1024x1024", "1536x1024", "1024x1536", "auto"],
+    },
+    "gpt-image-1-mini": {
+        "supported_params": {
+            "model",
+            "prompt",
+            "n",
+            "size",
+            "quality",
+            "output_format",
+            "background",
+            "output_compression",
+            "partial_images",
+            "stream",
+            "user",
+        },
+        "defaults": {"size": "auto", "quality": "auto", "output_format": "png"},
+        "size_options": ["1024x1024", "1536x1024", "1024x1536", "auto"],
+    },
+    "gpt-image-1.5": {
+        "supported_params": {
+            "model",
+            "prompt",
+            "n",
+            "size",
+            "quality",
+            "output_format",
+            "background",
+            "input_fidelity",
+            "output_compression",
+            "partial_images",
+            "stream",
+            "user",
+        },
+        "defaults": {"size": "auto", "quality": "auto", "output_format": "png", "input_fidelity": "low"},
+        "size_options": ["1024x1024", "1536x1024", "1024x1536", "auto"],
+    },
+}
+
+
 class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
     def __init__(self):
         super().__init__()
@@ -94,7 +161,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         image.save(buffer, format=format)
         return buffer.getvalue()
 
-    def _image_to_base64(self, image: Image.Image, format: str = "jpeg") -> bytes:
+    def _image_to_base64(self, image: Image.Image, format: str = "jpeg") -> str:
         """Convert PIL Image to base64 string."""
         buffer = io.BytesIO()
         # Ensure image is in RGB mode
@@ -110,6 +177,28 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         image = Image.open(io.BytesIO(image_data))
         return image
 
+    def _filter_params_for_model(self, model: str, requested_params: dict) -> dict:
+        """Filter parameters based on model capabilities and apply defaults."""
+        model_config = MODEL_CONFIG.get(model)
+        if not model_config:
+            logger.warning(f"Unknown model '{model}', using dall-e-2 defaults")
+            model_config = MODEL_CONFIG["dall-e-2"]
+
+        supported_params = model_config["supported_params"]
+        defaults = model_config["defaults"]
+
+        # Start with model defaults
+        filtered_params = defaults.copy()
+
+        # Add supported requested parameters
+        for param_name, param_value in requested_params.items():
+            if param_name in supported_params:
+                filtered_params[param_name] = param_value
+            else:
+                logger.debug(f"Parameter '{param_name}' not supported by model '{model}', skipping")
+
+        return filtered_params
+
     def _apply_openai_filter(self, image: Image.Image, filter_type: ai_generation_type, preview: bool) -> Image.Image:
         """Apply filter using OpenAI DALL-E or GPT-Image-1."""
         if not self._config.openai_api_key:
@@ -117,10 +206,8 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         model = self._config.openai_model
 
         # For preview mode, for now we just return the normal image...
-        # size = "256x256" if model == "dall-e-2" and preview  else "1024x1024"
         if preview:
             return image
-        size = "auto"
 
         # Get style prompt for this filter type
         if filter_type == "custom":
@@ -136,40 +223,59 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         # Convert image to bytes
         image_bytes = self._image_to_bytes(image)
 
+        # Build requested parameters
+        requested_params = {
+            "model": model,
+            "prompt": prompt,
+            "n": 1,
+            "size": self._config.image_size,
+            "quality": self._config.image_quality,
+            "input_fidelity": "high",
+            "output_format": "jpeg",
+            "response_format": "b64_json",  # For dall-e-2 compatibility
+        }
+
+        # Filter parameters based on model capabilities
+        filtered_params = self._filter_params_for_model(model, requested_params)
+
+        # Log what parameters we're actually using
+        logger.info(f"Using model '{model}' with parameters: {filtered_params}")
+
         headers = {"Authorization": f"Bearer {self._config.openai_api_key}"}
 
-        files = {
-            "model": (None, model),
-            "prompt": (None, prompt),
-            "n": (None, 1),
-            "size": (None, size),  # TODO: Make configurable
-            "quality": (None, "high"),  # TODO: Make configurable
-            "input_fidelity": (None, "high"),  # TODO: Make configurable
-            "output_format": (None, "jpeg"),  # TODO: Make configurable
-        }
-        # Model-specific setup
-        if model == "dall-e-2":
-            files["response_format"] = (None, "b64_json")  # TODO: Make configurable
-        if model == "gpt-image-1":
-            files["moderation"] = (None, "low")  # TODO: Make configurable
+        # Convert parameters to files format for multipart request
+        files = {key: (None, value) for key, value in filtered_params.items()}
 
-        logging.info("Sending request to OpenAI API... with following parameters: %s", files)
-
-        # Hard-code image mimeType and name for now
+        # Add the image file
         files["image"] = ("image", image_bytes, "image/png")
 
-        response = requests.post("https://api.openai.com/v1/images/edits", headers=headers, files=files, timeout=self._config.timeout_seconds)
+        try:
+            response = requests.post("https://api.openai.com/v1/images/edits", headers=headers, files=files, timeout=self._config.timeout_seconds)
 
-        if response.status_code != 200:
-            raise RuntimeError(f"OpenAI API error: {response.status_code} - {response.text}")
+            if response.status_code != 200:
+                raise RuntimeError(f"OpenAI API error: {response.status_code} - {response.text}")
 
-        result = response.json()
-        if "data" not in result or not result["data"]:
-            raise RuntimeError("No image data received from OpenAI")
+            result = response.json()
+            if "data" not in result or not result["data"]:
+                raise RuntimeError("No image data received from OpenAI")
 
-        # Convert response back to image
-        generated_image_b64 = result["data"][0]["b64_json"]
-        return self._base64_to_image(generated_image_b64)
+            # Handle response format differences
+            if "b64_json" in result["data"][0]:
+                # GPT models and dall-e-2 with b64_json format
+                generated_image_b64 = result["data"][0]["b64_json"]
+                return self._base64_to_image(generated_image_b64)
+            elif "url" in result["data"][0]:
+                # dall-e-2 with URL format (fallback)
+                image_url = result["data"][0]["url"]
+                logger.warning("Received URL response, downloading image (consider using b64_json format)")
+                img_response = requests.get(image_url, timeout=30)
+                img_response.raise_for_status()
+                return Image.open(io.BytesIO(img_response.content))
+            else:
+                raise RuntimeError("Invalid response format from OpenAI API")
+
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f"Request to OpenAI API failed: {e}")
 
     def clear_cache(self):
         """Clear the image cache."""
