@@ -266,8 +266,8 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
         headers = {"Authorization": f"Bearer {self._config.connection.openai_api_key}"}
 
-        # Convert parameters to files format for multipart request
-        files = {key: (None, value) for key, value in filtered_params.items()}
+        # Convert parameters to files format for multipart request - niquests requires string values
+        files = {key: (None, str(value)) for key, value in filtered_params.items()}
 
         # Add the image file
         files["image"] = ("image", image_bytes, "image/png")
