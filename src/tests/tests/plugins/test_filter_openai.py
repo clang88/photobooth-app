@@ -183,3 +183,27 @@ def test_custom_filter_with_api_call(mock_post, filter_openai_plugin, test_image
     call_args = mock_post.call_args
     files_sent = call_args[1]["files"]
     assert files_sent["prompt"][1] == "my custom test prompt"
+
+
+def test_configurable_parameters(filter_openai_plugin):
+    """Test that all new configurable parameters are properly set."""
+    # Test default values
+    assert filter_openai_plugin._config.output_format == "jpeg"
+    assert filter_openai_plugin._config.input_fidelity == "low"
+    assert filter_openai_plugin._config.background == "auto"
+    assert filter_openai_plugin._config.number_of_images == 1
+    assert filter_openai_plugin._config.output_compression == 85
+    assert filter_openai_plugin._config.response_format == "b64_json"
+    
+    # Test configuration changes
+    filter_openai_plugin._config.output_format = "png"
+    filter_openai_plugin._config.input_fidelity = "high"
+    filter_openai_plugin._config.background = "transparent"
+    filter_openai_plugin._config.number_of_images = 3
+    filter_openai_plugin._config.output_compression = 95
+    
+    assert filter_openai_plugin._config.output_format == "png"
+    assert filter_openai_plugin._config.input_fidelity == "high"
+    assert filter_openai_plugin._config.background == "transparent"
+    assert filter_openai_plugin._config.number_of_images == 3
+    assert filter_openai_plugin._config.output_compression == 95
