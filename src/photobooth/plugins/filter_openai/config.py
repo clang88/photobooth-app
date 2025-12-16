@@ -88,8 +88,6 @@ class FilterOpenAiConfig(BaseConfig):
     # Style prompts for different filter types
     style_prompts: list[StylePrompt] = Field(
         default=[
-            StylePrompt(style_name="style_transfer", prompt="artistic style transfer, maintain subject, professional photography"),
-            StylePrompt(style_name="enhance", prompt="enhanced, high quality, sharp details, professional photography"),
             StylePrompt(style_name="cartoon", prompt="cartoon style, animated, colorful, disney-like illustration"),
             StylePrompt(style_name="sketch", prompt="pencil sketch, black and white drawing, artistic sketch"),
             StylePrompt(style_name="watercolor", prompt="watercolor painting, soft brush strokes, artistic"),

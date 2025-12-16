@@ -33,7 +33,7 @@ def test_mp_avail_filter(filter_openai_plugin):
     filters = filter_openai_plugin.mp_avail_filter()
 
     assert len(filters) > 0
-    assert any("style_transfer" in f for f in filters)
+    assert any("sketch" in f for f in filters)
     assert any("enhance" in f for f in filters)
 
 
@@ -55,7 +55,7 @@ def test_mp_userselectable_filter_disabled(filter_openai_plugin):
 
 def test_unify_deunify(filter_openai_plugin):
     """Test filter name unify/deunify functionality."""
-    original_name = "style_transfer"
+    original_name = "sketch"
     unified = filter_openai_plugin.unify(original_name)
     deunified = filter_openai_plugin.deunify(unified)
 
@@ -65,8 +65,8 @@ def test_unify_deunify(filter_openai_plugin):
 
 def test_cache_key_generation(filter_openai_plugin, test_image):
     """Test cache key generation."""
-    key1 = filter_openai_plugin._generate_cache_key(test_image, "style_transfer", False)
-    key2 = filter_openai_plugin._generate_cache_key(test_image, "style_transfer", False)
+    key1 = filter_openai_plugin._generate_cache_key(test_image, "sketch", False)
+    key2 = filter_openai_plugin._generate_cache_key(test_image, "sketch", False)
     key3 = filter_openai_plugin._generate_cache_key(test_image, "enhance", False)
 
     # Same parameters should generate same key
@@ -82,7 +82,7 @@ def test_fallback_on_error(filter_openai_plugin, test_image):
     filter_openai_plugin._config.plugin_behavior.enable_fallback_on_error = True
 
     # Should return original image on error when fallback is enabled
-    result = filter_openai_plugin.mp_filter_pipeline_step(test_image, filter_openai_plugin.unify("style_transfer"), False)
+    result = filter_openai_plugin.mp_filter_pipeline_step(test_image, filter_openai_plugin.unify("sketch"), False)
 
     assert result is test_image
 
@@ -99,13 +99,13 @@ def test_openai_filter_success(mock_post, filter_openai_plugin, test_image):
     mock_post.return_value = mock_response
 
     filter_openai_plugin._config.connection.openai_api_key = "test_key"
-    # Enable style_transfer for this test
+    # Enable sketch for this test
     for style in filter_openai_plugin._config.style_prompts:
-        if style.style_name == "style_transfer":
+        if style.style_name == "sketch":
             style.enabled = True
             break
 
-    result = filter_openai_plugin.do_filter(test_image, "style_transfer", False)
+    result = filter_openai_plugin.do_filter(test_image, "sketch", False)
 
     assert isinstance(result, Image.Image)
     mock_post.assert_called_once()
@@ -117,7 +117,7 @@ def test_missing_api_key_error(filter_openai_plugin, test_image):
     filter_openai_plugin._config.plugin_behavior.enable_fallback_on_error = False
 
     with pytest.raises(ValueError, match="OpenAI API key not configured"):
-        filter_openai_plugin.do_filter(test_image, "style_transfer", False)
+        filter_openai_plugin.do_filter(test_image, "sketch", False)
 
 
 def test_cache_functionality(filter_openai_plugin, test_image):
