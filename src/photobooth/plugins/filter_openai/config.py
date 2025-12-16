@@ -29,9 +29,9 @@ class ConnectionSettings(BaseModel):
 
 
 class ImageGenerationSettings(BaseModel):
-    image_quality: Literal["auto", "high", "medium", "low", "standard", "hd"] = Field(
+    image_quality: Literal["auto", "high", "medium", "low"] = Field(
         default="auto",
-        description="Quality of generated images. 'auto' lets the model choose the best quality. GPT models support high/medium/low, DALL-E-3 supports hd/standard, DALL-E-2 only supports standard.",
+        description="Quality of generated images. 'auto' lets the model choose the best quality. Only supported by GPT models.",
     )
 
     image_size: Literal["auto", "1024x1024", "1536x1024", "1024x1536", "256x256", "512x512", "1792x1024", "1024x1792"] = Field(

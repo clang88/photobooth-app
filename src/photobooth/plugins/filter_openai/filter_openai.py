@@ -20,10 +20,9 @@ MODEL_CONFIG = {
         "supported_params": {"model", "prompt", "n", "size", "response_format", "user"},
         "defaults": {
             "size": "1024x1024",
-            "quality": "standard",  # Only standard supported
             "response_format": "b64_json",
         },
-        "size_options": ["256x256", "512x512", "1024x1024"],
+        "supported_values": {"size": ["256x256", "512x512", "1024x1024"]},
     },
     "gpt-image-1": {
         "supported_params": {
@@ -41,7 +40,7 @@ MODEL_CONFIG = {
             "user",
         },
         "defaults": {"size": "auto", "quality": "auto", "output_format": "png", "input_fidelity": "low"},
-        "size_options": ["1024x1024", "1536x1024", "1024x1536", "auto"],
+        "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
     },
     "gpt-image-1-mini": {
         "supported_params": {
@@ -58,7 +57,7 @@ MODEL_CONFIG = {
             "user",
         },
         "defaults": {"size": "auto", "quality": "auto", "output_format": "png"},
-        "size_options": ["1024x1024", "1536x1024", "1024x1536", "auto"],
+        "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
     },
     "gpt-image-1.5": {
         "supported_params": {
@@ -76,7 +75,7 @@ MODEL_CONFIG = {
             "user",
         },
         "defaults": {"size": "auto", "quality": "auto", "output_format": "png", "input_fidelity": "low"},
-        "size_options": ["1024x1024", "1536x1024", "1024x1536", "auto"],
+        "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
     },
 }
 
@@ -167,6 +166,9 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
     def _image_to_bytes(self, image: Image.Image, format: str = "png") -> bytes:
         buffer = io.BytesIO()
+        # Convert to RGBA format as required by DALL-E 2
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
         image.save(buffer, format=format)
         return buffer.getvalue()
 
@@ -203,6 +205,13 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         for param_name, param_value in requested_params.items():
             if param_name in supported_params:
                 filtered_params[param_name] = param_value
+                if param_name in model_config.get("supported_values", {}):
+                    supported_values = model_config["supported_values"][param_name]
+                    if param_value not in supported_values:
+                        logger.warning(
+                            f"Parameter '{param_name}' value '{param_value}' not supported by model '{model}'. Supported values: {supported_values}. Using default '{defaults.get(param_name)}'"
+                        )
+                        filtered_params[param_name] = defaults.get(param_name)
             else:
                 logger.debug(f"Parameter '{param_name}' not supported by model '{model}', skipping")
 
