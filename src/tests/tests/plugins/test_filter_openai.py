@@ -13,13 +13,21 @@ logger = logging.getLogger(__name__)
 @pytest.fixture()
 def filter_openai_plugin():
     """Setup AI filter plugin for testing."""
-    plugin = FilterOpenai()
-    plugin._config = FilterOpenAiConfig()
-    # Configure for testing
-    plugin._config.plugin_behavior.add_userselectable_filter = True
-    plugin._config.plugin_behavior.enable_fallback_on_error = True
-    plugin._config.plugin_behavior.cache_results = False  # Disable caching for tests
-    return plugin
+    # Mock the config loading to avoid file system dependencies
+    with patch("photobooth.plugins.filter_openai.config.FilterOpenAiConfig") as mock_config_class:
+        # Create a real config instance but bypass file loading
+        config = FilterOpenAiConfig.model_construct()
+        mock_config_class.return_value = config
+
+        plugin = FilterOpenai()
+        plugin._config = config
+
+        # Configure for testing
+        plugin._config.plugin_behavior.add_userselectable_filter = True
+        plugin._config.plugin_behavior.enable_fallback_on_error = True
+        plugin._config.plugin_behavior.cache_results = False  # Disable caching for tests
+
+        return plugin
 
 
 @pytest.fixture()
@@ -200,7 +208,7 @@ def test_custom_filter_with_api_call(mock_post, filter_openai_plugin, test_image
 
 
 def test_configurable_parameters(filter_openai_plugin):
-    """Test that all new configurable parameters are properly set."""
+    """Test that all configurable parameters are properly set."""
     # Test default values for parameters that exist in config
     assert filter_openai_plugin._config.image_generation.input_fidelity == "low"  # Default value
     assert filter_openai_plugin._config.image_generation.output_compression == 85

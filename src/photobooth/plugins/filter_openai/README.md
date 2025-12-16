@@ -1,116 +1,117 @@
-# AI Image Generation Filter Plugin
+# OpenAI Image Generation Filter Plugin
 
-This plugin adds AI-powered image filters to the photobooth application, allowing users to apply various artistic styles and enhancements to their photos using state-of-the-art AI models.
+This plugin adds AI-powered image filters to the photobooth application using OpenAI's image generation models, allowing users to apply various artistic styles and enhancements to their photos.
 
 ## Features
 
-- **Multiple AI Providers**: Support for OpenAI DALL-E, Stability AI, Replicate, and local Stable Diffusion
-- **Variety of Styles**: Style transfer, enhancement, cartoon, sketch, watercolor, oil painting, vintage, cyberpunk, fantasy, and anime styles
-- **Configurable Parameters**: Adjustable generation strength, steps, and timeouts
+- **OpenAI Integration**: Uses OpenAI's GPT-Image models for image generation and editing
+- **Multiple Models**: Support for gpt-image-1, gpt-image-1-mini, and gpt-image-1.5 (DALL-E 2 has known issues and may not work correctly)
+- **Variety of Styles**: Style transfer including cartoon, sketch, watercolor, oil painting, vintage, cyberpunk, fantasy, and anime styles
+- **Configurable Parameters**: Adjustable image quality, size, and generation parameters
 - **Caching**: Optional result caching to avoid regenerating identical images
 - **Fallback Support**: Option to return original image if AI generation fails
-- **Preview Mode**: Faster processing for quick previews
+- **Preview Mode**: Returns original image for quick previews
 
 ## Configuration
 
 ### Basic Settings
 
 - `add_userselectable_filter`: Enable/disable user-selectable AI filters in the UI
-- `userselectable_filter`: List of filter types available to users
-- `ai_provider`: Choose between "openai", "stability_ai", "replicate", or "local_stable_diffusion"
-
-### Provider Settings
-
-#### OpenAI
-- `openai_api_key`: Your OpenAI API key (required)
-- `openai_model`: Model to use (dall-e-2, dall-e-3)
-
-#### Stability AI
-- `stability_api_key`: Your Stability AI API key (required)
-
-#### Replicate
-- `replicate_api_key`: Your Replicate API key (required)
-
-#### Local Stable Diffusion
-- `local_sd_endpoint`: URL of your local Stable Diffusion API (e.g., Automatic1111 WebUI)
-
-### Generation Parameters
-
-- `generation_strength`: How strong the AI transformation should be (0.1-1.0)
-- `generation_steps`: Number of inference steps (10-50, more = higher quality but slower)
-- `timeout_seconds`: API timeout in seconds (5-120)
-
-### Advanced Settings
-
-- `style_prompts`: Custom prompts for each filter style
 - `enable_fallback_on_error`: Return original image if AI generation fails
 - `cache_results`: Cache generated images to avoid repeated processing
 
+### OpenAI Settings
+
+- `openai_api_key`: Your OpenAI API key (required)
+- `openai_model`: Model to use:
+  - `gpt-image-1`: Latest and most capable model
+  - `gpt-image-1-mini`: Faster and more cost-effective option
+  - `gpt-image-1.5`: Enhanced version with better quality
+  - `dall-e-2`: ⚠️ **Not recommended** - Has known compatibility issues and may not work correctly
+- `timeout_seconds`: API timeout in seconds (5-300)
+
+### Image Generation Parameters
+
+- `image_quality`: Quality setting (auto, high, medium, low)
+- `image_size`: Output size (auto, 1024x1024, 1536x1024, 1024x1536)
+- `input_fidelity`: How closely to match input image (high, low)
+- `output_format`: Image format (png, jpeg, webp)
+- `output_compression`: Compression level for JPEG/WebP (0-100)
+
 ## Available Filter Types
 
-1. **style_transfer**: General artistic style transfer
-2. **enhance**: Image enhancement and upscaling
-3. **cartoon**: Disney-like cartoon style
-4. **sketch**: Pencil sketch black and white drawing
-5. **watercolor**: Soft watercolor painting effect
-6. **oil_painting**: Classical oil painting style
-7. **vintage**: Retro/sepia photography effect
-8. **cyberpunk**: Futuristic neon cyberpunk style
-9. **fantasy**: Magical and mystical atmosphere
-10. **anime**: Japanese animation/manga style
+1. **cartoon**: Disney-like cartoon style with animated, colorful illustration
+2. **sketch**: Pencil sketch black and white drawing, artistic sketch
+3. **watercolor**: Soft watercolor painting with brush strokes
+4. **oil_painting**: Classical art style with rich textures
+5. **vintage**: Vintage photography with sepia tones and retro aesthetic
+6. **cyberpunk**: Futuristic style with neon lights and sci-fi aesthetic
+7. **fantasy**: Magical and mystical atmosphere
+8. **anime**: Studio Ghibli style with vibrant colors and hand-drawn aesthetic
+
+Each filter can be customized by modifying the `style_prompts` in the configuration.
 
 ## Setup Instructions
 
-### 1. API Key Configuration
+### 1. OpenAI API Key
 
-Choose your preferred AI provider and obtain an API key:
-
-- **OpenAI**: Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-- **Stability AI**: Visit [Stability AI Platform](https://platform.stability.ai/account/keys)
-- **Replicate**: Visit [Replicate](https://replicate.com/account/api-tokens)
+1. Visit [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Create an account and generate an API key
+3. Ensure you have sufficient credits for image generation
 
 ### 2. Configuration
 
 1. Open the photobooth admin interface
 2. Navigate to Plugin Configuration
-3. Select "AI Filter Plugin"
-4. Configure your preferred provider and API key
-5. Adjust generation parameters as needed
-6. Select which filters to make available to users
-
-### 3. Local Stable Diffusion Setup (Optional)
-
-For local processing without cloud APIs:
-
-1. Install [Automatic1111 WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
-2. Start with `--api` flag: `./webui.sh --api`
-3. Set `local_sd_endpoint` to your WebUI URL (default: http://127.0.0.1:7860)
+3. Select "OpenAI Filter Plugin"
+4. Enter your OpenAI API key
+5. Select your preferred model (recommend gpt-image-1-mini for cost-effectiveness)
+6. Adjust generation parameters as needed
+7. Customize style prompts if desired
 
 ## Usage
 
-Once configured, AI filters will appear in the photobooth filter selection alongside other filters like Pilgram2. Users can:
+Once configured, OpenAI filters will appear in the photobooth filter selection alongside other filters like Pilgram2. Users can:
 
 1. Take a photo
-2. Select an AI filter from the gallery
-3. Preview the AI-generated result
-4. Apply the filter to save the transformed image
+2. Select an AI filter from the available options
+3. The AI will process the image (this takes 10-30 seconds)
+4. View and save the AI-generated result
+
+**Note**: Preview mode currently returns the original image for performance reasons.
 
 ## Performance Considerations
 
-- **Cloud APIs**: Require internet connection and have usage costs
-- **Processing Time**: AI generation typically takes 10-30 seconds
-- **Caching**: Enable caching to avoid regenerating identical images
-- **Preview Mode**: Uses faster/smaller processing for quick previews
-- **Local Setup**: No usage costs but requires powerful hardware
+- **Internet Required**: Requires stable internet connection to reach OpenAI's API
+- **Processing Time**: AI generation typically takes 10-30 seconds depending on model and parameters
+- **API Costs**: Usage incurs costs based on OpenAI's pricing (gpt-image-1-mini is most cost-effective)
+- **Caching**: Enable caching to avoid regenerating identical images and save on costs
+- **Model Selection**: gpt-image-1-mini offers good balance of speed and cost vs quality
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **API Key Errors**: Verify your API key is valid and has sufficient credits
-2. **Timeout Errors**: Increase `timeout_seconds` for slower connections
-3. **Quality Issues**: Adjust `generation_strength` and `generation_steps`
-4. **Connection Errors**: Check internet connection for cloud providers
+1. **API Key Errors**: 
+   - Verify your OpenAI API key is valid and active
+   - Check that you have sufficient credits in your OpenAI account
+   - Ensure the API key has permissions for image generation
+
+2. **DALL-E 2 Issues**: 
+   - ⚠️ **Known Issue**: DALL-E 2 has compatibility problems and may not work correctly
+   - **Recommendation**: Use gpt-image-1, gpt-image-1-mini, or gpt-image-1.5 instead
+
+3. **Timeout Errors**: 
+   - Increase `timeout_seconds` for slower connections
+   - Try switching to gpt-image-1-mini for faster processing
+
+4. **Image Format Errors**: 
+   - Images are automatically converted to RGBA format for OpenAI compatibility
+   - If issues persist, try different input image formats
+
+5. **Generation Quality**: 
+   - Adjust `image_quality` and `input_fidelity` settings
+   - Customize `style_prompts` for better results
 
 ### Logs
 
@@ -130,9 +131,13 @@ pytest src/tests/tests/plugins/test_filter_openai.py -v
 
 ### Adding New Styles
 
-1. Add new style to `style_prompts` in `config.py`
-2. Add corresponding prompt to `style_prompts` configuration
-3. Update user documentation
+1. Modify the `style_prompts` list in the plugin configuration
+2. Add a new `StylePrompt` with your desired `style_name` and `prompt`
+3. The new style will automatically appear in the available filters
+
+### Custom Prompts
+
+Each style uses a text prompt to guide the AI generation. You can customize these prompts to achieve different artistic effects.
 
 ## Dependencies
 
