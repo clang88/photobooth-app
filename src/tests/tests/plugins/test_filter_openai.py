@@ -98,7 +98,7 @@ def test_openai_filter_success(mock_post, filter_openai_plugin, test_image):
     }
     mock_post.return_value = mock_response
 
-    filter_openai_plugin._config.openai_api_key = "test_key"
+    filter_openai_plugin._config.connection.openai_api_key = "test_key"
     # Enable style_transfer for this test
     for style in filter_openai_plugin._config.style_prompts:
         if style.style_name == "style_transfer":
@@ -181,7 +181,7 @@ def test_custom_filter_with_api_call(mock_post, filter_openai_plugin, test_image
     }
     mock_post.return_value = mock_response
 
-    filter_openai_plugin._config.openai_api_key = "test_key"
+    filter_openai_plugin._config.connection.openai_api_key = "test_key"
     # Add a custom style to test with
     from photobooth.plugins.filter_openai.models import StylePrompt
 
@@ -202,13 +202,13 @@ def test_custom_filter_with_api_call(mock_post, filter_openai_plugin, test_image
 def test_configurable_parameters(filter_openai_plugin):
     """Test that all new configurable parameters are properly set."""
     # Test default values for parameters that exist in config
-    assert filter_openai_plugin._config.image_generation.input_fidelity == "high"  # Value from loaded config file
+    assert filter_openai_plugin._config.image_generation.input_fidelity == "low"  # Default value
     assert filter_openai_plugin._config.image_generation.output_compression == 85
     assert filter_openai_plugin._config.image_generation.image_quality == "auto"
     assert filter_openai_plugin._config.image_generation.image_size == "auto"
-    assert filter_openai_plugin._config.connection.timeout_seconds == 300  # Value from loaded config file
+    assert filter_openai_plugin._config.connection.timeout_seconds == 120  # Default value
     assert filter_openai_plugin._config.plugin_behavior.enable_fallback_on_error is True
-    assert filter_openai_plugin._config.plugin_behavior.cache_results is False  # Value from loaded config file
+    assert filter_openai_plugin._config.plugin_behavior.cache_results is False  # Disabled in test fixture
 
     # Test configuration changes
     filter_openai_plugin._config.image_generation.input_fidelity = "high"
