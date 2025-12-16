@@ -2,7 +2,6 @@ import base64
 import hashlib
 import io
 import logging
-from typing import cast, get_args
 
 import requests
 from PIL import Image
@@ -10,7 +9,7 @@ from PIL import Image
 from photobooth.plugins import hookimpl
 from photobooth.plugins.base_plugin import BaseFilter
 
-from .config import FilterOpenAiConfig, ai_generation_type
+from .config import FilterOpenAiConfig
 
 logger = logging.getLogger(__name__)
 
@@ -93,15 +92,25 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
     @hookimpl
     def mp_avail_filter(self) -> list[str]:
         """Return all available AI filters."""
-        return [self.unify(f) for f in get_args(ai_generation_type)]
+        # Return all configured style_prompts
+        all_filters = [style.style_name for style in self._config.style_prompts]
+        return [self.unify(f) for f in all_filters]
 
     @hookimpl
     def mp_userselectable_filter(self) -> list[str]:
         """Return user-selectable AI filters based on configuration."""
-        if self._config.add_userselectable_filter:
-            return [self.unify(f) for f in self._config.userselectable_filter]
-        else:
+        if not self._config.add_userselectable_filter:
             return []
+
+        # Dynamically generate list from enabled style prompts + custom
+        selectable_filters = []
+
+        # Add all enabled style prompts
+        for style in self._config.style_prompts:
+            if style.enabled:
+                selectable_filters.append(style.style_name)
+
+        return [self.unify(f) for f in selectable_filters]
 
     @hookimpl
     def mp_filter_pipeline_step(self, image: Image.Image, plugin_filter: str, preview: bool) -> Image.Image | None:
@@ -110,7 +119,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
         if filter_name:  # If this is our filter, process it
             try:
-                return self.do_filter(image, cast(ai_generation_type, filter_name), preview)
+                return self.do_filter(image, filter_name, preview)
             except Exception as exc:
                 logger.error(f"AI filter '{filter_name}' failed: {exc}")
                 if self._config.enable_fallback_on_error:
@@ -120,7 +129,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
                     raise
         return None
 
-    def do_filter(self, image: Image.Image, filter_type: ai_generation_type, preview: bool) -> Image.Image:
+    def do_filter(self, image: Image.Image, filter_type: str, preview: bool) -> Image.Image:
         """Apply AI filter to the image."""
         # Generate cache key
         cache_key = self._generate_cache_key(image, filter_type, preview)
@@ -145,7 +154,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
             logger.error(f"Failed to apply AI filter '{filter_type}': {exc}")
             raise
 
-    def _generate_cache_key(self, image: Image.Image, filter_type: ai_generation_type, preview: bool) -> str:
+    def _generate_cache_key(self, image: Image.Image, filter_type: str, preview: bool) -> str:
         """Generate a cache key for the image and filter combination."""
         # Create a hash of image data + filter settings
         img_bytes = io.BytesIO()
@@ -199,7 +208,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
         return filtered_params
 
-    def _apply_openai_filter(self, image: Image.Image, filter_type: ai_generation_type, preview: bool) -> Image.Image:
+    def _apply_openai_filter(self, image: Image.Image, filter_type: str, preview: bool) -> Image.Image:
         """Apply filter using OpenAI DALL-E or GPT-Image-1."""
         if not self._config.openai_api_key:
             raise ValueError("OpenAI API key not configured")
@@ -210,32 +219,44 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
             return image
 
         # Get style prompt for this filter type
-        if filter_type == "custom":
-            style_prompt = self._config.custom_prompt
-        else:
-            style_prompt = "professional photography"  # default
-            for style in self._config.style_prompts:
-                if style.style_name == filter_type and style.enabled:
-                    style_prompt = style.prompt
-                    break
+        style_prompt = None
+        for style in self._config.style_prompts:
+            if style.style_name == filter_type and style.enabled:
+                style_prompt = style.prompt
+                break
+
+        if style_prompt is None:
+            raise ValueError(f"Filter '{filter_type}' not found in enabled style_prompts")
+
         prompt = f"{style_prompt}"
 
         # Convert image to bytes
         image_bytes = self._image_to_bytes(image)
 
-        # Build requested parameters
+        # Build requested parameters - only include parameters that exist in config
         requested_params = {
             "model": model,
             "prompt": prompt,
-            "n": self._config.number_of_images,
-            "size": self._config.image_size,
-            "quality": self._config.image_quality,
-            "input_fidelity": self._config.input_fidelity,
-            "output_format": self._config.output_format,
-            "background": self._config.background,
-            "output_compression": self._config.output_compression,
-            "response_format": self._config.response_format,
         }
+
+        # Add parameters that exist in config
+        param_mapping = {
+            "image_size": "size",
+            "image_quality": "quality",
+            "input_fidelity": "input_fidelity",
+            "output_compression": "output_compression",
+            "response_format": "response_format",
+        }
+
+        for config_param, api_param in param_mapping.items():
+            if hasattr(self._config, config_param):
+                requested_params[api_param] = getattr(self._config, config_param)
+
+        # Add hardcoded defaults for common parameters
+        if "n" not in requested_params:
+            requested_params["n"] = 1  # Always generate 1 image for photobooth
+        if "response_format" not in requested_params:
+            requested_params["response_format"] = "b64_json"  # Default to base64 JSON
 
         # Filter parameters based on model capabilities
         filtered_params = self._filter_params_for_model(model, requested_params)

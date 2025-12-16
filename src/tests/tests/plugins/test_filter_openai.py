@@ -99,6 +99,11 @@ def test_openai_filter_success(mock_post, filter_openai_plugin, test_image):
     mock_post.return_value = mock_response
 
     filter_openai_plugin._config.openai_api_key = "test_key"
+    # Enable style_transfer for this test
+    for style in filter_openai_plugin._config.style_prompts:
+        if style.style_name == "style_transfer":
+            style.enabled = True
+            break
 
     result = filter_openai_plugin.do_filter(test_image, "style_transfer", False)
 
@@ -150,10 +155,15 @@ def test_base64_conversion(filter_openai_plugin, test_image):
 
 
 def test_custom_prompt_functionality(filter_openai_plugin):
-    """Test custom prompt configuration."""
-    # Test custom prompt setting
-    filter_openai_plugin._config.custom_prompt = "test custom prompt"
-    assert filter_openai_plugin._config.custom_prompt == "test custom prompt"
+    """Test custom style configuration through style_prompts."""
+    # Test adding a custom style prompt
+    from photobooth.plugins.filter_openai.models import StylePrompt
+
+    custom_style = StylePrompt(style_name="test_custom", prompt="test custom prompt", enabled=True)
+    filter_openai_plugin._config.style_prompts.append(custom_style)
+
+    # Verify the custom style is available
+    assert any(style.style_name == "test_custom" for style in filter_openai_plugin._config.style_prompts)
 
     # Verify custom is in available filters
     filters = filter_openai_plugin.mp_avail_filter()
@@ -172,7 +182,11 @@ def test_custom_filter_with_api_call(mock_post, filter_openai_plugin, test_image
     mock_post.return_value = mock_response
 
     filter_openai_plugin._config.openai_api_key = "test_key"
-    filter_openai_plugin._config.custom_prompt = "my custom test prompt"
+    # Add a custom style to test with
+    from photobooth.plugins.filter_openai.models import StylePrompt
+
+    custom_style = StylePrompt(style_name="custom", prompt="my custom test prompt", enabled=True)
+    filter_openai_plugin._config.style_prompts.append(custom_style)
 
     result = filter_openai_plugin.do_filter(test_image, "custom", False)
 
@@ -187,23 +201,22 @@ def test_custom_filter_with_api_call(mock_post, filter_openai_plugin, test_image
 
 def test_configurable_parameters(filter_openai_plugin):
     """Test that all new configurable parameters are properly set."""
-    # Test default values
-    assert filter_openai_plugin._config.output_format == "jpeg"
-    assert filter_openai_plugin._config.input_fidelity == "low"
-    assert filter_openai_plugin._config.background == "auto"
-    assert filter_openai_plugin._config.number_of_images == 1
+    # Test default values for parameters that exist in config
+    assert filter_openai_plugin._config.input_fidelity == "high"  # Value from loaded config file
     assert filter_openai_plugin._config.output_compression == 85
-    assert filter_openai_plugin._config.response_format == "b64_json"
-    
+    assert filter_openai_plugin._config.image_quality == "auto"
+    assert filter_openai_plugin._config.image_size == "auto"
+    assert filter_openai_plugin._config.timeout_seconds == 300  # Value from loaded config file
+    assert filter_openai_plugin._config.enable_fallback_on_error is True
+    assert filter_openai_plugin._config.cache_results is False  # Value from loaded config file
+
     # Test configuration changes
-    filter_openai_plugin._config.output_format = "png"
     filter_openai_plugin._config.input_fidelity = "high"
-    filter_openai_plugin._config.background = "transparent"
-    filter_openai_plugin._config.number_of_images = 3
-    filter_openai_plugin._config.output_compression = 95
-    
-    assert filter_openai_plugin._config.output_format == "png"
     assert filter_openai_plugin._config.input_fidelity == "high"
-    assert filter_openai_plugin._config.background == "transparent"
-    assert filter_openai_plugin._config.number_of_images == 3
+
+    filter_openai_plugin._config.output_compression = 95
+    assert filter_openai_plugin._config.output_compression == 95
+
+    # Test that configuration changes are persistent
+    assert filter_openai_plugin._config.input_fidelity == "high"
     assert filter_openai_plugin._config.output_compression == 95

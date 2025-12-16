@@ -130,7 +130,7 @@ pytest src/tests/tests/plugins/test_filter_openai.py -v
 
 ### Adding New Styles
 
-1. Add new style to `ai_generation_type` in `config.py`
+1. Add new style to `style_prompts` in `config.py`
 2. Add corresponding prompt to `style_prompts` configuration
 3. Update user documentation
 

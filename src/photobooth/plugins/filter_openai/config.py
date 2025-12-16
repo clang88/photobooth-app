@@ -8,28 +8,18 @@ from photobooth.services.config.baseconfig import BaseConfig
 
 from .models import StylePrompt
 
-# Available AI generation types
-ai_generation_type = Literal[
-    "style_transfer", "enhance", "cartoon", "sketch", "watercolor", "oil_painting", "vintage", "cyberpunk", "fantasy", "anime", "custom"
-]
-
 
 class FilterOpenAiConfig(BaseConfig):
     model_config = SettingsConfigDict(
         title="Open AI Filter Plugin Config",
         json_file=f"{CONFIG_PATH}plugin_filter_openai.json",
-        env_prefix="filter-ai-",
+        env_prefix="filter-openai-",
     )
 
     # General plugin settings
     add_userselectable_filter: bool = Field(
         default=True,
-        description="Add userselectable AI filters to the list the user can choose from.",
-    )
-
-    userselectable_filter: list[ai_generation_type] = Field(
-        default=["style_transfer", "enhance", "cartoon", "sketch", "custom"],
-        description="Select AI filters the user can choose from. Even if unselected here, the filter is still available in the admin configuration.",
+        description="Add userselectable AI filters to the list the user can choose from. When enabled, all enabled style_prompts plus 'custom' will be available for user selection.",
     )
 
     # OpenAI Configuration
@@ -62,38 +52,39 @@ class FilterOpenAiConfig(BaseConfig):
     )
 
     # Advanced image generation settings
-    output_format: Literal["png", "jpeg", "webp"] = Field(
-        default="jpeg",
-        description="Output format for generated images (GPT models only). PNG supports transparency, JPEG is smaller, WEBP offers good compression with quality.",
-    )
-
     input_fidelity: Literal["high", "low"] = Field(
         default="low",
         description="Control how much effort the model exerts to match input image style and features. 'high' preserves more details but takes longer. Only supported by gpt-image-1 and gpt-image-1.5.",
     )
 
-    background: Literal["auto", "transparent", "opaque"] = Field(
-        default="auto",
-        description="Background transparency setting for generated images. 'transparent' creates images with transparent backgrounds, 'opaque' forces solid background. Only supported by GPT models.",
+    output_format: Literal["png", "jpeg", "webp"] = Field(
+        default="jpeg",
+        description="Output format for generated images (GPT models only). PNG supports transparency, JPEG is smaller, WEBP offers good compression with quality.",
     )
 
-    number_of_images: int = Field(
-        default=1,
-        ge=1,
-        le=10,
-        description="Number of images to generate per request. Note: Only one image is used by the photobooth, but generating multiple can provide alternatives. DALL-E-3 only supports n=1.",
-    )
+    ### Currently not useful for photobooth filter use case ###
+    # number_of_images: int = Field(
+    #    default=1,
+    #    ge=1,
+    #    le=10,
+    #    description="Number of images to generate per request. Note: Only one image is used by the photobooth, but generating multiple can provide alternatives. DALL-E-3 only supports n=1.",
+    # )
+    #
+    # background: Literal["auto", "transparent", "opaque"] = Field(
+    #    default="auto",
+    #    description="Background transparency setting for generated images. 'transparent' creates images with transparent backgrounds, 'opaque' forces solid background. Only supported by GPT models.",
+    # )
+    #
+    # response_format: Literal["url", "b64_json"] = Field(
+    #    default="b64_json",
+    #    description="Format for receiving generated images. 'b64_json' embeds image data directly (recommended), 'url' provides temporary download links (60min expiry). GPT models always use b64_json.",
+    # )
 
     output_compression: int = Field(
         default=85,
         ge=0,
         le=100,
         description="Compression level (0-100%) for generated images when using JPEG or WebP format. Higher values = better quality but larger files. Only supported by GPT models.",
-    )
-
-    response_format: Literal["url", "b64_json"] = Field(
-        default="b64_json",
-        description="Format for receiving generated images. 'b64_json' embeds image data directly (recommended), 'url' provides temporary download links (60min expiry). GPT models always use b64_json.",
     )
 
     # Style prompts for different filter types
@@ -111,12 +102,6 @@ class FilterOpenAiConfig(BaseConfig):
             StylePrompt(style_name="anime", prompt="Redraw this portrait in Studio Ghibli style, vibrant colors and handdrawn aesthetic."),
         ],
         description="Prompt templates for different AI filter styles. These guide the AI generation process.",
-    )
-
-    # Custom prompt for user-defined styles
-    custom_prompt: str = Field(
-        default="professional photography, high quality, enhanced",
-        description="Custom prompt text that will be used when 'custom' filter is selected. Users can modify this to create their own AI filter style.",
     )
 
     # Fallback settings
