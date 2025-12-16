@@ -16,9 +16,9 @@ def filter_openai_plugin():
     plugin = FilterOpenai()
     plugin._config = FilterOpenAiConfig()
     # Configure for testing
-    plugin._config.add_userselectable_filter = True
-    plugin._config.enable_fallback_on_error = True
-    plugin._config.cache_results = False  # Disable caching for tests
+    plugin._config.plugin_behavior.add_userselectable_filter = True
+    plugin._config.plugin_behavior.enable_fallback_on_error = True
+    plugin._config.plugin_behavior.cache_results = False  # Disable caching for tests
     return plugin
 
 
@@ -47,7 +47,7 @@ def test_mp_userselectable_filter_enabled(filter_openai_plugin):
 
 def test_mp_userselectable_filter_disabled(filter_openai_plugin):
     """Test user selectable filters when disabled."""
-    filter_openai_plugin._config.add_userselectable_filter = False
+    filter_openai_plugin._config.plugin_behavior.add_userselectable_filter = False
     filters = filter_openai_plugin.mp_userselectable_filter()
 
     assert filters == []
@@ -78,8 +78,8 @@ def test_cache_key_generation(filter_openai_plugin, test_image):
 def test_fallback_on_error(filter_openai_plugin, test_image):
     """Test fallback to original image on error."""
     # Force an error by setting invalid API key
-    filter_openai_plugin._config.openai_api_key = ""
-    filter_openai_plugin._config.enable_fallback_on_error = True
+    filter_openai_plugin._config.connection.openai_api_key = ""
+    filter_openai_plugin._config.plugin_behavior.enable_fallback_on_error = True
 
     # Should return original image on error when fallback is enabled
     result = filter_openai_plugin.mp_filter_pipeline_step(test_image, filter_openai_plugin.unify("style_transfer"), False)
@@ -113,8 +113,8 @@ def test_openai_filter_success(mock_post, filter_openai_plugin, test_image):
 
 def test_missing_api_key_error(filter_openai_plugin, test_image):
     """Test error when API key is missing."""
-    filter_openai_plugin._config.openai_api_key = ""  # No API key
-    filter_openai_plugin._config.enable_fallback_on_error = False
+    filter_openai_plugin._config.connection.openai_api_key = ""  # No API key
+    filter_openai_plugin._config.plugin_behavior.enable_fallback_on_error = False
 
     with pytest.raises(ValueError, match="OpenAI API key not configured"):
         filter_openai_plugin.do_filter(test_image, "style_transfer", False)
@@ -122,7 +122,7 @@ def test_missing_api_key_error(filter_openai_plugin, test_image):
 
 def test_cache_functionality(filter_openai_plugin, test_image):
     """Test image caching functionality."""
-    filter_openai_plugin._config.cache_results = True
+    filter_openai_plugin._config.plugin_behavior.cache_results = True
 
     # Clear cache first
     filter_openai_plugin.clear_cache()
@@ -202,21 +202,21 @@ def test_custom_filter_with_api_call(mock_post, filter_openai_plugin, test_image
 def test_configurable_parameters(filter_openai_plugin):
     """Test that all new configurable parameters are properly set."""
     # Test default values for parameters that exist in config
-    assert filter_openai_plugin._config.input_fidelity == "high"  # Value from loaded config file
-    assert filter_openai_plugin._config.output_compression == 85
-    assert filter_openai_plugin._config.image_quality == "auto"
-    assert filter_openai_plugin._config.image_size == "auto"
-    assert filter_openai_plugin._config.timeout_seconds == 300  # Value from loaded config file
-    assert filter_openai_plugin._config.enable_fallback_on_error is True
-    assert filter_openai_plugin._config.cache_results is False  # Value from loaded config file
+    assert filter_openai_plugin._config.image_generation.input_fidelity == "high"  # Value from loaded config file
+    assert filter_openai_plugin._config.image_generation.output_compression == 85
+    assert filter_openai_plugin._config.image_generation.image_quality == "auto"
+    assert filter_openai_plugin._config.image_generation.image_size == "auto"
+    assert filter_openai_plugin._config.connection.timeout_seconds == 300  # Value from loaded config file
+    assert filter_openai_plugin._config.plugin_behavior.enable_fallback_on_error is True
+    assert filter_openai_plugin._config.plugin_behavior.cache_results is False  # Value from loaded config file
 
     # Test configuration changes
-    filter_openai_plugin._config.input_fidelity = "high"
-    assert filter_openai_plugin._config.input_fidelity == "high"
+    filter_openai_plugin._config.image_generation.input_fidelity = "high"
+    assert filter_openai_plugin._config.image_generation.input_fidelity == "high"
 
-    filter_openai_plugin._config.output_compression = 95
-    assert filter_openai_plugin._config.output_compression == 95
+    filter_openai_plugin._config.image_generation.output_compression = 95
+    assert filter_openai_plugin._config.image_generation.output_compression == 95
 
     # Test that configuration changes are persistent
-    assert filter_openai_plugin._config.input_fidelity == "high"
-    assert filter_openai_plugin._config.output_compression == 95
+    assert filter_openai_plugin._config.image_generation.input_fidelity == "high"
+    assert filter_openai_plugin._config.image_generation.output_compression == 95

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic_settings import SettingsConfigDict
 
 from photobooth import CONFIG_PATH
@@ -9,20 +9,7 @@ from photobooth.services.config.baseconfig import BaseConfig
 from .models import StylePrompt
 
 
-class FilterOpenAiConfig(BaseConfig):
-    model_config = SettingsConfigDict(
-        title="Open AI Filter Plugin Config",
-        json_file=f"{CONFIG_PATH}plugin_filter_openai.json",
-        env_prefix="filter-openai-",
-    )
-
-    # General plugin settings
-    add_userselectable_filter: bool = Field(
-        default=True,
-        description="Add userselectable AI filters to the list the user can choose from. When enabled, all enabled style_prompts plus 'custom' will be available for user selection.",
-    )
-
-    # OpenAI Configuration
+class ConnectionSettings(BaseModel):
     openai_api_key: str = Field(
         default="",
         description="OpenAI API key for DALL-E image processing. Required when using OpenAI provider.",
@@ -40,7 +27,8 @@ class FilterOpenAiConfig(BaseConfig):
         description="Timeout for AI API calls in seconds.",
     )
 
-    # Image generation settings
+
+class ImageGenerationSettings(BaseModel):
     image_quality: Literal["auto", "high", "medium", "low", "standard", "hd"] = Field(
         default="auto",
         description="Quality of generated images. 'auto' lets the model choose the best quality. GPT models support high/medium/low, DALL-E-3 supports hd/standard, DALL-E-2 only supports standard.",
@@ -51,7 +39,6 @@ class FilterOpenAiConfig(BaseConfig):
         description="Size of generated images. 'auto' lets the model choose optimal size. Available sizes depend on the selected model.",
     )
 
-    # Advanced image generation settings
     input_fidelity: Literal["high", "low"] = Field(
         default="low",
         description="Control how much effort the model exerts to match input image style and features. 'high' preserves more details but takes longer. Only supported by gpt-image-1 and gpt-image-1.5.",
@@ -62,30 +49,41 @@ class FilterOpenAiConfig(BaseConfig):
         description="Output format for generated images (GPT models only). PNG supports transparency, JPEG is smaller, WEBP offers good compression with quality.",
     )
 
-    ### Currently not useful for photobooth filter use case ###
-    # number_of_images: int = Field(
-    #    default=1,
-    #    ge=1,
-    #    le=10,
-    #    description="Number of images to generate per request. Note: Only one image is used by the photobooth, but generating multiple can provide alternatives. DALL-E-3 only supports n=1.",
-    # )
-    #
-    # background: Literal["auto", "transparent", "opaque"] = Field(
-    #    default="auto",
-    #    description="Background transparency setting for generated images. 'transparent' creates images with transparent backgrounds, 'opaque' forces solid background. Only supported by GPT models.",
-    # )
-    #
-    # response_format: Literal["url", "b64_json"] = Field(
-    #    default="b64_json",
-    #    description="Format for receiving generated images. 'b64_json' embeds image data directly (recommended), 'url' provides temporary download links (60min expiry). GPT models always use b64_json.",
-    # )
-
     output_compression: int = Field(
         default=85,
         ge=0,
         le=100,
         description="Compression level (0-100%) for generated images when using JPEG or WebP format. Higher values = better quality but larger files. Only supported by GPT models.",
     )
+
+
+class PluginBehaviorSettings(BaseModel):
+    add_userselectable_filter: bool = Field(
+        default=True,
+        description="Add userselectable AI filters to the list the user can choose from. When enabled, all enabled style_prompts will be available for user selection.",
+    )
+
+    enable_fallback_on_error: bool = Field(
+        default=True,
+        description="If AI generation fails, return the original image instead of an error.",
+    )
+
+    cache_results: bool = Field(
+        default=True,
+        description="Cache AI-generated results to avoid regenerating the same image multiple times.",
+    )
+
+
+class FilterOpenAiConfig(BaseConfig):
+    model_config = SettingsConfigDict(
+        title="Open AI Filter Plugin Config",
+        json_file=f"{CONFIG_PATH}plugin_filter_openai.json",
+        env_prefix="filter-openai-",
+    )
+
+    connection: ConnectionSettings = ConnectionSettings()
+    image_generation: ImageGenerationSettings = ImageGenerationSettings()
+    plugin_behavior: PluginBehaviorSettings = PluginBehaviorSettings()
 
     # Style prompts for different filter types
     style_prompts: list[StylePrompt] = Field(
@@ -102,15 +100,4 @@ class FilterOpenAiConfig(BaseConfig):
             StylePrompt(style_name="anime", prompt="Redraw this portrait in Studio Ghibli style, vibrant colors and handdrawn aesthetic."),
         ],
         description="Prompt templates for different AI filter styles. These guide the AI generation process.",
-    )
-
-    # Fallback settings
-    enable_fallback_on_error: bool = Field(
-        default=True,
-        description="If AI generation fails, return the original image instead of an error.",
-    )
-
-    cache_results: bool = Field(
-        default=True,
-        description="Cache AI-generated results to avoid regenerating the same image multiple times.",
     )
