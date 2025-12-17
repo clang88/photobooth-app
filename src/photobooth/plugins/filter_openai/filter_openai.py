@@ -282,34 +282,54 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         files["image"] = ("image", image_bytes, "image/png")
 
         try:
+            logger.debug("Sending request to OpenAI API...")
             response = requests.post(
                 "https://api.openai.com/v1/images/edits", headers=headers, files=files, timeout=self._config.connection.timeout_seconds
             )
 
+            logger.debug(f"Received response with status code: {response.status_code}")
+
             if response.status_code != 200:
+                logger.error(f"OpenAI API returned error status {response.status_code}: {response.text}")
                 raise RuntimeError(f"OpenAI API error: {response.status_code} - {response.text}")
 
+            logger.debug("Parsing JSON response...")
             result = response.json()
+            logger.debug(f"Response keys: {list(result.keys()) if result else 'None'}")
+
             if "data" not in result or not result["data"]:
+                logger.error(f"Invalid response structure: {result}")
                 raise RuntimeError("No image data received from OpenAI")
 
+            response_data = result["data"][0]
+            logger.debug(f"Response data keys: {list(response_data.keys())}")
+
             # Handle response format differences
-            if "b64_json" in result["data"][0]:
+            if "b64_json" in response_data:
                 # GPT models and dall-e-2 with b64_json format
-                generated_image_b64 = result["data"][0]["b64_json"]
+                logger.debug("Processing b64_json response...")
+                generated_image_b64 = response_data["b64_json"]
                 return self._base64_to_image(generated_image_b64)
-            elif "url" in result["data"][0]:
+            elif "url" in response_data:
                 # dall-e-2 with URL format (fallback)
-                image_url = result["data"][0]["url"]
                 logger.warning("Received URL response, downloading image (consider using b64_json format)")
+                image_url = response_data["url"]
                 img_response = requests.get(image_url, timeout=30)
                 img_response.raise_for_status()
                 return Image.open(io.BytesIO(img_response.content))
             else:
+                logger.error(f"Unknown response format. Available keys: {list(response_data.keys())}")
                 raise RuntimeError("Invalid response format from OpenAI API")
 
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Request timed out after {self._config.connection.timeout_seconds} seconds: {e}")
+            raise RuntimeError(f"Request to OpenAI API timed out: {e}") from e
         except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
             raise RuntimeError(f"Request to OpenAI API failed: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error during API call: {e}")
+            raise
 
     def clear_cache(self):
         """Clear the image cache."""
