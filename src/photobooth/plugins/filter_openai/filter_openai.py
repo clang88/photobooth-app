@@ -291,10 +291,11 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
         try:
             logger.debug("Sending request to OpenAI API...")
-            response = requests.post(
+            session = requests.Session(disable_http3=True)  # HTTP/3 seems to cause timeouts?
+            response = session.post(
                 "https://api.openai.com/v1/images/edits", headers=headers, files=files, timeout=self._config.connection.timeout_seconds
             )
-
+            session.close()
             logger.debug(f"Received response with status code: {response.status_code}")
 
             if response.status_code != 200:
