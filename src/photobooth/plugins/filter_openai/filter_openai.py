@@ -38,6 +38,7 @@ MODEL_CONFIG = {
             "partial_images",
             "stream",
             "user",
+            "moderation",
         },
         "defaults": {"size": "auto", "quality": "auto", "output_format": "png", "input_fidelity": "low"},
         "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
@@ -55,6 +56,7 @@ MODEL_CONFIG = {
             "partial_images",
             "stream",
             "user",
+            "moderation",
         },
         "defaults": {"size": "auto", "quality": "auto", "output_format": "png"},
         "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
@@ -73,6 +75,7 @@ MODEL_CONFIG = {
             "partial_images",
             "stream",
             "user",
+            "moderation",
         },
         "defaults": {"size": "auto", "quality": "auto", "output_format": "png", "input_fidelity": "low"},
         "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
@@ -166,9 +169,13 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
     def _image_to_bytes(self, image: Image.Image, format: str = "png") -> bytes:
         buffer = io.BytesIO()
+        model = self._config.connection.openai_model
         # Convert to RGBA format as required by DALL-E 2
-        if image.mode != "RGBA":
+        if model == "dall-e-2" and image.mode != "RGBA":
             image = image.convert("RGBA")
+        # Convert to RGB for other models if not already RGB or RGBA
+        elif image.mode not in ("RGB", "RGBA"):
+            image = image.convert("RGB")
         image.save(buffer, format=format)
         return buffer.getvalue()
 
@@ -255,6 +262,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
             "input_fidelity": "input_fidelity",
             "output_format": "output_format",
             "output_compression": "output_compression",
+            "moderation": "moderation",
         }
 
         for config_param, api_param in param_mapping.items():
@@ -263,7 +271,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
         # Add hardcoded defaults for common parameters
         if "n" not in requested_params:
-            requested_params["n"] = 1  # Always generate 1 image for photobooth
+            requested_params["n"] = "1"  # Always generate 1 image for photobooth
         if "response_format" not in requested_params:
             requested_params["response_format"] = "b64_json"  # Default to base64 JSON
 
