@@ -100,7 +100,7 @@ class FilterOpenAiConfig(BaseConfig):
             StylePrompt(style_name="vintage", prompt="vintage photography, sepia tones, retro aesthetic"),
             StylePrompt(style_name="cyberpunk", prompt="cyberpunk style, neon lights, futuristic, sci-fi aesthetic"),
             StylePrompt(style_name="fantasy", prompt="fantasy art, magical, ethereal, mystical atmosphere"),
-            StylePrompt(style_name="anime", prompt="Redraw this portrait in Studio Ghibli anime style."),
+            StylePrompt(style_name="anime", prompt="Redraw this portrait in a style similar to Howl's Moving Castle by Studio Ghibli."),
         ],
         description="Prompt templates for different AI filter styles. These guide the AI generation process.",
     )
