@@ -95,7 +95,7 @@ def test_fallback_on_error(filter_openai_plugin, test_image):
     assert result is test_image
 
 
-@patch("photobooth.plugins.filter_openai.filter_openai.requests.post")
+@patch("niquests.Session.post")
 def test_openai_filter_success(mock_post, filter_openai_plugin, test_image):
     """Test successful OpenAI filter application."""
     # Mock successful API response
@@ -178,7 +178,7 @@ def test_custom_prompt_functionality(filter_openai_plugin):
     assert any("custom" in f for f in filters)
 
 
-@patch("photobooth.plugins.filter_openai.filter_openai.requests.post")
+@patch("niquests.Session.post")
 def test_custom_filter_with_api_call(mock_post, filter_openai_plugin, test_image):
     """Test custom filter functionality with mocked API call."""
     # Mock successful API response
