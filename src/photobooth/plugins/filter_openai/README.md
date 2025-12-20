@@ -5,12 +5,14 @@ This plugin adds AI-powered image filters to the photobooth application using Op
 ## Features
 
 - **OpenAI Integration**: Uses OpenAI's GPT-Image models for image generation and editing
-- **Multiple Models**: Support for gpt-image-1, gpt-image-1-mini, and gpt-image-1.5 (DALL-E 2 has known issues and may not work correctly)
-- **Variety of Styles**: Style transfer including cartoon, sketch, watercolor, oil painting, vintage, cyberpunk, fantasy, and anime styles
+- **Multiple Models**: Support for gpt-image-1, gpt-image-1-mini, and gpt-image-1.5 (I couldn't get DALL-E2 to work correctly, but I'm leaving it in as a selectable model)
+- **Custom style prompts**: The default prompts can be changed or new prompts added by the user.
 - **Configurable Parameters**: Adjustable image quality, size, and generation parameters
-- **Caching**: Optional result caching to avoid regenerating identical images
+- **Caching**: Optional result caching to avoid regenerating identical images (useful for switching between styles)
 - **Fallback Support**: Option to return original image if AI generation fails
-- **Preview Mode**: Returns original image for quick previews
+
+## Missing features
+- **Preview Mode**: Currently just returns original image for quick previews, perhaps adding the option to define a "sample" image that is presented as an example for the prompt might be a good workaround; unsure if this can be done via plugins...
 
 ## Configuration
 
@@ -24,10 +26,10 @@ This plugin adds AI-powered image filters to the photobooth application using Op
 
 - `openai_api_key`: Your OpenAI API key (required)
 - `openai_model`: Model to use:
-  - `gpt-image-1`: Latest and most capable model
+  - `gpt-image-1`: Large and quite capable image model
   - `gpt-image-1-mini`: Faster and more cost-effective option
-  - `gpt-image-1.5`: Enhanced version with better quality
-  - `dall-e-2`: ⚠️ **Not recommended** - Has known compatibility issues and may not work correctly
+  - `gpt-image-1.5`: Enhanced version of gpt-image-1, slightly faster with better quality
+  - `dall-e-2`: ⚠️ **Not recommended** - Did not work correctly in my testing
 - `timeout_seconds`: API timeout in seconds (5-300)
 
 ### Image Generation Parameters
@@ -98,20 +100,20 @@ Once configured, OpenAI filters will appear in the photobooth filter selection a
    - Ensure the API key has permissions for image generation
 
 2. **DALL-E 2 Issues**: 
-   - ⚠️ **Known Issue**: DALL-E 2 has compatibility problems and may not work correctly
-   - **Recommendation**: Use gpt-image-1, gpt-image-1-mini, or gpt-image-1.5 instead
+   - ⚠️ **Known Issue**: DALL-E 2 has compatibility problems and may not work correctly; for some reason edits are not properly applied.
+   - **Recommendation**: Use gpt-image-1, gpt-image-1-mini, or ideally gpt-image-1.5 instead
 
 3. **Timeout Errors**: 
-   - Increase `timeout_seconds` for slower connections
+   - Increase `timeout_seconds` for bigger/slower models and slower connections
    - Try switching to gpt-image-1-mini for faster processing
 
 4. **Image Format Errors**: 
-   - Images are automatically converted to RGBA format for OpenAI compatibility
-   - If issues persist, try different input image formats
+   - Images are automatically converted to RGB/RGBA format for OpenAI compatibility
+   - If issues persist it might be because of the image size, please contact the plugin maintainer with sample images
 
 5. **Generation Quality**: 
-   - Adjust `image_quality` and `input_fidelity` settings
-   - Customize `style_prompts` for better results
+   - Adjust `image_quality` and `input_fidelity` settings for faster generation
+   - Customize `style_prompts` to create your own filters!
 
 ### Logs
 
