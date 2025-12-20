@@ -12,7 +12,7 @@ from .models import StylePrompt
 class ConnectionSettings(BaseModel):
     openai_api_key: str = Field(
         default="",
-        description="OpenAI API key for DALL-E image processing. Required when using OpenAI provider.",
+        description="OpenAI API key for DALL-E/GPT image processing. Obtain from https://platform.openai.com/account/api-keys",
     )
 
     openai_model: Literal["dall-e-2", "gpt-image-1", "gpt-image-1-mini", "gpt-image-1.5"] = Field(
