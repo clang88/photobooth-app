@@ -234,6 +234,12 @@ class JobModelBase(ABC, Generic[T]):
         # very first, move the capture_to_process to originals. if anything later fails, at least we got the file in safe place.
         captured_original = capture_to_process.rename(Path(PATH_CAMERA_ORIGINAL, original_filenamepath))
 
+        # update capture object in capture_sets if it matches so get_capture() and approval endpoints continue pointing to a valid file
+        for capture_set in self._capture_sets:
+            for capture in capture_set.captures:
+                if capture.filepath == capture_to_process:
+                    capture.filepath = captured_original
+
         mediaitem = Mediaitem(
             id=uuid4(),
             job_identifier=self._job_identifier,
