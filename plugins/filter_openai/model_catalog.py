@@ -56,13 +56,13 @@ OPENAI_MODEL_CONFIGS: dict[OpenAIModelLiteral, OpenAIModelConfig] = {
         "supported_values": {"size": GPT_IMAGE_SIZE_VALUES, "quality": GPT_IMAGE_QUALITY_VALUES},
     },
     "gpt-image-2": {
-        "supported_params": GPT_IMAGE_BASE_PARAMS | {"input_fidelity"},
-        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg", "input_fidelity": "low"},
+        "supported_params": GPT_IMAGE_BASE_PARAMS,
+        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg"},
         "supported_values": {"size": GPT_IMAGE_SIZE_VALUES, "quality": GPT_IMAGE_QUALITY_VALUES},
     },
     "gpt-image-2.5-sunburst": {
-        "supported_params": GPT_IMAGE_BASE_PARAMS | {"input_fidelity"},
-        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg", "input_fidelity": "low"},
+        "supported_params": GPT_IMAGE_BASE_PARAMS,
+        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg"},
         "supported_values": {"size": GPT_IMAGE_SIZE_VALUES, "quality": GPT_IMAGE_25_QUALITY_VALUES},
     },
     "gpt-image-2.5-flare": {
