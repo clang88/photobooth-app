@@ -9,7 +9,7 @@
 /userdata
 /tmp
 /recycle
-/plugins
+#/plugins # Include plugins because we are developing them
 
 
 # python files
