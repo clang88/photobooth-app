@@ -2,133 +2,19 @@ import base64
 import hashlib
 import io
 import logging
+import textwrap
 
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
+from photobooth import CONFIG_PATH
 from photobooth.plugins import hookimpl
 from photobooth.plugins.base_plugin import BaseFilter
 
 from .config import FilterOpenAiConfig
+from .model_catalog import OPENAI_MODEL_CONFIGS
 
 logger = logging.getLogger(__name__)
-
-
-# Model-specific parameter configuration
-MODEL_CONFIG = {
-    "gpt-image-1": {
-        "supported_params": {
-            "model",
-            "prompt",
-            "n",
-            "size",
-            "quality",
-            "output_format",
-            "background",
-            "input_fidelity",
-            "output_compression",
-            "partial_images",
-            "stream",
-            "user",
-            "moderation",
-        },
-        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg", "input_fidelity": "low"},
-        "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
-    },
-    "gpt-image-1-mini": {
-        "supported_params": {
-            "model",
-            "prompt",
-            "n",
-            "size",
-            "quality",
-            "output_format",
-            "background",
-            "output_compression",
-            "partial_images",
-            "stream",
-            "user",
-            "moderation",
-        },
-        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg"},
-        "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
-    },
-    "gpt-image-1.5": {
-        "supported_params": {
-            "model",
-            "prompt",
-            "n",
-            "size",
-            "quality",
-            "output_format",
-            "background",
-            "input_fidelity",
-            "output_compression",
-            "partial_images",
-            "stream",
-            "user",
-            "moderation",
-        },
-        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg", "input_fidelity": "low"},
-        "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
-    },
-    "gpt-image-2": {
-        "supported_params": {
-            "model",
-            "prompt",
-            "n",
-            "size",
-            "quality",
-            "output_format",
-            "background",
-            "input_fidelity",
-            "output_compression",
-            "partial_images",
-            "stream",
-            "user",
-            "moderation",
-        },
-        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg", "input_fidelity": "low"},
-        "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"]},
-    },
-    "gpt-image-2.5-sunburst": {
-        "supported_params": {
-            "model",
-            "prompt",
-            "n",
-            "size",
-            "quality",
-            "output_format",
-            "background",
-            "input_fidelity",
-            "output_compression",
-            "partial_images",
-            "stream",
-            "user",
-            "moderation",
-        },
-        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg", "input_fidelity": "low"},
-        "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"], "quality": ["low", "medium", "high", "xhigh", "max", "auto"]},
-    },
-    "gpt-image-2.5-flare": {
-        "supported_params": {
-            "model",
-            "prompt",
-            "n",
-            "size",
-            "quality",
-            "output_format",
-            "background",
-            "output_compression",
-            "partial_images",
-            "stream",
-            "user",
-            "moderation",
-        },
-        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg"},
-        "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"], "quality": ["low", "medium", "high", "xhigh", "max", "auto"]},
-    },
-}
 
 
 class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
@@ -173,8 +59,8 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
             except Exception as exc:
                 logger.error(f"AI filter '{filter_name}' failed: {exc}")
                 if self._config.plugin_behavior.enable_fallback_on_error:
-                    logger.info("Returning original image due to AI filter error")
-                    return image
+                    logger.info("Returning original image with error text due to AI filter error")
+                    return self._add_error_text(image.copy(), str(exc))
                 else:
                     raise
         return None
@@ -222,7 +108,31 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
         return f"{img_hash}_{settings_hash}"
 
+    def _resize_image_if_needed(self, image: Image.Image) -> Image.Image:
+        """Resize image if it exceeds max dimensions."""
+        max_size = self._config.image_generation.max_input_image_size
+
+        # Check if resizing is needed
+        if max(image.size) <= max_size:
+            return image
+
+        # Calculate new size while maintaining aspect ratio
+        width, height = image.size
+        if width > height:
+            new_width = max_size
+            new_height = int((height * max_size) / width)
+        else:
+            new_height = max_size
+            new_width = int((width * max_size) / height)
+
+        resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        logger.debug(f"Resized image from {image.size} to {resized_image.size}")
+        return resized_image
+
     def _image_to_bytes(self, image: Image.Image, format: str = "png", model: str = None) -> bytes:
+        # Resize if needed
+        image = self._resize_image_if_needed(image)
+
         buffer = io.BytesIO()
         # Convert to RGB for models if not already RGB or RGBA
         if image.mode not in ("RGB", "RGBA"):
@@ -246,12 +156,58 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         image = Image.open(io.BytesIO(image_data))
         return image
 
+    def _add_error_text(self, image: Image.Image, error_message: str) -> Image.Image:
+        """Overlay error text on the fallback image."""
+        draw = ImageDraw.Draw(image)
+        width, height = image.size
+
+        # Scale font size relative to image width
+        font_size = max(16, width // 30)
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+        except OSError:
+            try:
+                font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+            except OSError:
+                font = ImageFont.load_default()
+
+        # Wrap text to fit image width (approx chars per line)
+        max_chars = max(20, width // (font_size // 2))
+        wrapped = textwrap.fill(error_message, width=max_chars)
+        lines = wrapped.split("\n")
+        # Keep at most 4 lines to avoid covering too much of the image
+        if len(lines) > 4:
+            lines = lines[:4]
+            lines[-1] = lines[-1][: max_chars - 3] + "..."
+        text = "\n".join(lines)
+
+        # Calculate text position (top of image)
+        bbox = draw.multiline_textbbox((0, 0), text, font=font)
+        text_height = bbox[3] - bbox[1]
+        text_width = bbox[2] - bbox[0]
+        padding = 10
+        x = (width - text_width) // 2
+        y = padding * 2
+
+        # Draw semi-transparent dark background
+        bg_box = (x - padding, y - padding, x + text_width + padding, y + text_height + padding)
+        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        overlay_draw = ImageDraw.Draw(overlay)
+        overlay_draw.rectangle(bg_box, fill=(0, 0, 0, 160))
+        image = Image.alpha_composite(image.convert("RGBA"), overlay).convert(image.mode)
+
+        # Draw text on the composited image
+        draw = ImageDraw.Draw(image)
+        draw.multiline_text((x, y), text, fill=(255, 255, 255), font=font)
+
+        return image
+
     def _filter_params_for_model(self, model: str, requested_params: dict) -> dict:
         """Filter parameters based on model capabilities and apply defaults."""
-        model_config = MODEL_CONFIG.get(model)
+        model_config = OPENAI_MODEL_CONFIGS.get(model)
         if not model_config:
             logger.warning(f"Unknown model '{model}', using gpt-image-1 defaults")
-            model_config = MODEL_CONFIG["gpt-image-1"]
+            model_config = OPENAI_MODEL_CONFIGS["gpt-image-1"]
 
         supported_params = model_config["supported_params"]
         defaults = model_config["defaults"]
@@ -267,7 +223,8 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
                     supported_values = model_config["supported_values"][param_name]
                     if param_value not in supported_values:
                         logger.warning(
-                            f"Parameter '{param_name}' value '{param_value}' not supported by model '{model}'. Supported values: {supported_values}. Using default '{defaults.get(param_name)}'"
+                            f"Parameter '{param_name}' value '{param_value}' not supported by model '{model}'. Supported values: {supported_values}. "
+                            f"Using default '{defaults.get(param_name)}'"
                         )
                         filtered_params[param_name] = defaults.get(param_name)
             else:
@@ -289,7 +246,15 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         model = None
         for style in self._config.style_prompts:
             if style.style_name == filter_type:
-                style_prompt = style.prompt
+                if filter_type == "custom":
+                    try:
+                        with open(f"{CONFIG_PATH}/prompts/prompt.txt") as f:
+                            style_prompt = f.read().strip()
+                    except Exception as e:
+                        logger.error(f"Error reading custom prompt: {e}")
+                        style_prompt = None
+                else:
+                    style_prompt = style.prompt
                 # Use style-specific model if available, otherwise fall back to default
                 model = style.model if style.model else self._config.connection.default_model
                 break
@@ -342,56 +307,72 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         # Add the image file
         files["image"] = ("image", image_bytes, "image/png")
 
-        try:
-            logger.debug("Sending request to OpenAI API...")
-            session = requests.Session()
-            response = session.post(
-                "https://api.openai.com/v1/images/edits", headers=headers, files=files, timeout=self._config.connection.timeout_seconds
-            )
-            session.close()
-            logger.debug(f"Received response with status code: {response.status_code}")
+        max_retries = self._config.connection.max_retries
+        last_exception = None
 
-            if response.status_code != 200:
-                logger.error(f"OpenAI API returned error status {response.status_code}: {response.text}")
-                raise RuntimeError(f"OpenAI API error: {response.status_code} - {response.text}")
+        for attempt in range(1 + max_retries):
+            try:
+                logger.info(f"Sending request to OpenAI API with model '{model}' (attempt {attempt + 1}/{1 + max_retries})...")
+                logger.debug(f"Prompt: {prompt}")
 
-            logger.debug("Parsing JSON response...")
-            result = response.json()
-            logger.debug(f"Response keys: {list(result.keys()) if result else 'None'}")
+                session = requests.Session()
+                response = session.post(
+                    "https://api.openai.com/v1/images/edits", headers=headers, files=files, timeout=self._config.connection.timeout_seconds
+                )
+                session.close()
+                logger.debug(f"Received response with status code: {response.status_code}")
 
-            if "data" not in result or not result["data"]:
-                logger.error(f"Invalid response structure: {result}")
-                raise RuntimeError("No image data received from OpenAI")
+                if response.status_code != 200:
+                    logger.error(f"OpenAI API returned error status {response.status_code}: {response.text}")
+                    raise RuntimeError(f"OpenAI API error: {response.status_code} - {response.text}")
 
-            response_data = result["data"][0]
-            logger.debug(f"Response data keys: {list(response_data.keys())}")
+                logger.debug("Parsing JSON response...")
+                result = response.json()
+                logger.debug(f"Response keys: {list(result.keys()) if result else 'None'}")
 
-            # Handle response format differences
-            if "b64_json" in response_data:
-                # GPT models with b64_json format
-                logger.debug("Processing b64_json response...")
-                generated_image_b64 = response_data["b64_json"]
-                return self._base64_to_image(generated_image_b64)
-            elif "url" in response_data:
-                # URL format (fallback)
-                logger.warning("Received URL response, downloading image (consider using b64_json format)")
-                image_url = response_data["url"]
-                img_response = requests.get(image_url, timeout=30)
-                img_response.raise_for_status()
-                return Image.open(io.BytesIO(img_response.content))
-            else:
-                logger.error(f"Unknown response format. Available keys: {list(response_data.keys())}")
-                raise RuntimeError("Invalid response format from OpenAI API")
+                if "data" not in result or not result["data"]:
+                    logger.error(f"Invalid response structure: {result}")
+                    raise RuntimeError("No image data received from OpenAI")
 
-        except requests.exceptions.Timeout as e:
-            logger.error(f"Request timed out after {self._config.connection.timeout_seconds} seconds: {e}")
-            raise RuntimeError(f"Request to OpenAI API timed out: {e}") from e
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {e}")
-            raise RuntimeError(f"Request to OpenAI API failed: {e}") from e
-        except Exception as e:
-            logger.error(f"Unexpected error during API call: {e}")
-            raise
+                response_data = result["data"][0]
+                logger.debug(f"Response data keys: {list(response_data.keys())}")
+
+                # Handle response format differences
+                if "b64_json" in response_data:
+                    # GPT models with b64_json format
+                    logger.debug("Processing b64_json response...")
+                    generated_image_b64 = response_data["b64_json"]
+                    logger.info(f"Successfully generated image using '{model}' model")
+                    return self._base64_to_image(generated_image_b64)
+                elif "url" in response_data:
+                    # URL format (fallback)
+                    logger.warning("Received URL response, downloading image (consider using b64_json format)")
+                    image_url = response_data["url"]
+                    img_response = requests.get(image_url, timeout=30)
+                    img_response.raise_for_status()
+                    logger.info(f"Successfully generated image using '{model}' model")
+                    return Image.open(io.BytesIO(img_response.content))
+                else:
+                    logger.error(f"Unknown response format. Available keys: {list(response_data.keys())}")
+                    raise RuntimeError("Invalid response format from OpenAI API")
+
+            except requests.exceptions.Timeout as e:
+                last_exception = e
+                logger.warning(f"Request timed out (attempt {attempt + 1}/{1 + max_retries}): {e}")
+                if attempt < max_retries:
+                    logger.info("Retrying...")
+                    continue
+                logger.error(f"All {1 + max_retries} attempts timed out after {self._config.connection.timeout_seconds}s each")
+                raise RuntimeError(f"Request to OpenAI API timed out after {1 + max_retries} attempt(s): {e}") from e
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Request failed: {e}")
+                raise RuntimeError(f"Request to OpenAI API failed: {e}") from e
+            except Exception as e:
+                logger.error(f"Unexpected error during API call: {e}")
+                raise
+
+        # Should not be reached, but just in case
+        raise RuntimeError(f"Request to OpenAI API failed after {1 + max_retries} attempt(s)") from last_exception
 
     def clear_cache(self):
         """Clear the image cache."""
