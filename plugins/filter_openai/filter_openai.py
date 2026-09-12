@@ -3,7 +3,7 @@ import hashlib
 import io
 import logging
 
-import niquests as requests
+import requests
 from PIL import Image
 
 from photobooth.plugins import hookimpl
@@ -119,14 +119,13 @@ MODEL_CONFIG = {
             "quality",
             "output_format",
             "background",
-            "input_fidelity",
             "output_compression",
             "partial_images",
             "stream",
             "user",
             "moderation",
         },
-        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg", "input_fidelity": "low"},
+        "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg"},
         "supported_values": {"size": ["1024x1024", "1536x1024", "1024x1536", "auto"], "quality": ["low", "medium", "high", "xhigh", "max", "auto"]},
     },
 }
@@ -345,7 +344,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
         try:
             logger.debug("Sending request to OpenAI API...")
-            session = requests.Session(disable_http3=True)  # HTTP/3 seems to cause timeouts?
+            session = requests.Session()
             response = session.post(
                 "https://api.openai.com/v1/images/edits", headers=headers, files=files, timeout=self._config.connection.timeout_seconds
             )

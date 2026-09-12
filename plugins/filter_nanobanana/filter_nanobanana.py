@@ -2,20 +2,20 @@ import base64
 import hashlib
 import io
 import logging
-
 import textwrap
 
-import niquests as requests
+import requests
 from PIL import Image, ImageDraw, ImageFont
 
+from photobooth import CONFIG_PATH
 from photobooth.plugins import hookimpl
 from photobooth.plugins.base_plugin import BaseFilter
-from photobooth import CONFIG_PATH
 
 from .config import FilterNanobananaConfig
 from .model_catalog import GeminiModelLiteral, get_allowed_aspect_ratios, get_allowed_image_sizes, supports_image_size
 
 logger = logging.getLogger(__name__)
+
 
 class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
     def __init__(self):
@@ -111,11 +111,11 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
     def _resize_image_if_needed(self, image: Image.Image) -> Image.Image:
         """Resize image if it exceeds max dimensions."""
         max_size = self._config.image_generation.max_input_image_size
-        
+
         # Check if resizing is needed
         if max(image.size) <= max_size:
             return image
-            
+
         # Calculate new size while maintaining aspect ratio
         width, height = image.size
         if width > height:
@@ -124,7 +124,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         else:
             new_height = max_size
             new_width = int((width * max_size) / height)
-            
+
         resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
         logger.debug(f"Resized image from {image.size} to {resized_image.size}")
         return resized_image
@@ -133,13 +133,13 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         """Convert PIL Image to base64 string."""
         # Resize if needed
         image = self._resize_image_if_needed(image)
-        
+
         format = self._config.image_generation.input_image_format.upper()
         if format == "JPEG":
             # Convert to RGB for JPEG (removes alpha channel)
             if image.mode in ("RGBA", "LA", "P"):
                 image = image.convert("RGB")
-        
+
         buffer = io.BytesIO()
         image.save(buffer, format=format)
         b64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
@@ -167,7 +167,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
             if style.style_name == filter_type:
                 if filter_type == "custom":
                     try:
-                        with open(f"{CONFIG_PATH}/prompts/prompt.txt", "r") as f:
+                        with open(f"{CONFIG_PATH}/prompts/prompt.txt") as f:
                             style_prompt = f.read().strip()
                     except Exception as e:
                         logger.error(f"Error reading custom prompt: {e}")
@@ -185,7 +185,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
 
         # Convert image to base64
         image_b64 = self._image_to_base64(image)
-        
+
         # Determine mime type based on input format
         input_format = self._config.image_generation.input_image_format
         mime_type = f"image/{input_format}"
@@ -207,8 +207,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
             image_config["aspectRatio"] = configured_aspect_ratio
         else:
             logger.warning(
-                f"Configured aspect ratio '{configured_aspect_ratio}' is not supported by model '{model}'. "
-                "Omitting aspectRatio from imageConfig."
+                f"Configured aspect ratio '{configured_aspect_ratio}' is not supported by model '{model}'. Omitting aspectRatio from imageConfig."
             )
 
         if supports_image_size(model):
@@ -217,12 +216,11 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
                 image_config["imageSize"] = configured_image_size
             else:
                 logger.warning(
-                    f"Configured image size '{configured_image_size}' is not supported by model '{model}'. "
-                    "Omitting imageSize from imageConfig."
+                    f"Configured image size '{configured_image_size}' is not supported by model '{model}'. Omitting imageSize from imageConfig."
                 )
 
         generation_config["imageConfig"] = image_config
-        
+
         generation_config["responseModalities"] = self._config.image_generation.response_modalities
 
         payload = {
@@ -239,7 +237,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
                     ]
                 }
             ],
-            "generationConfig": generation_config
+            "generationConfig": generation_config,
         }
 
         api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -250,15 +248,10 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         for attempt in range(1 + max_retries):
             try:
                 logger.info(f"Sending request to Gemini API with model '{model}' (attempt {attempt + 1}/{1 + max_retries})...")
-                logger.debug(f"Prompt: {style_prompt}") 
+                logger.debug(f"Prompt: {style_prompt}")
 
-                session = requests.Session(disable_http3=True)
-                response = session.post(
-                    api_url, 
-                    headers=headers, 
-                    json=payload, 
-                    timeout=self._config.connection.timeout_seconds
-                )
+                session = requests.Session()
+                response = session.post(api_url, headers=headers, json=payload, timeout=self._config.connection.timeout_seconds)
                 session.close()
                 logger.debug(f"Received response with status code: {response.status_code}")
 
@@ -339,10 +332,10 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         font_size = max(16, width // 30)
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
-        except (OSError, IOError):
+        except OSError:
             try:
                 font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-            except (OSError, IOError):
+            except OSError:
                 font = ImageFont.load_default()
 
         # Wrap text to fit image width (approx chars per line)
@@ -352,7 +345,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         # Keep at most 4 lines to avoid covering too much of the image
         if len(lines) > 4:
             lines = lines[:4]
-            lines[-1] = lines[-1][:max_chars - 3] + "..."
+            lines[-1] = lines[-1][: max_chars - 3] + "..."
         text = "\n".join(lines)
 
         # Calculate text position (top of image)
