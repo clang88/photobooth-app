@@ -49,6 +49,11 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         return [self.unify(f) for f in selectable_filters]
 
     @hookimpl
+    def mp_long_running_filter(self) -> list[str]:
+        """Return long-running AI filters from this plugin."""
+        return self.mp_avail_filter()
+
+    @hookimpl
     def mp_filter_pipeline_step(self, image: Image.Image, plugin_filter: str, preview: bool) -> Image.Image | None:
         """Main filter processing step."""
         filter_name = self.deunify(plugin_filter)
