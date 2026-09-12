@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -14,7 +14,9 @@ class StylePrompt(BaseModel):
         description="Enable this style prompt.",
         default=True,
     )
-    model: Optional[Literal[None, "gpt-image-1", "gpt-image-1-mini", "gpt-image-1.5"]] = Field(
+    model: (
+        Literal[None, "gpt-image-1", "gpt-image-1-mini", "gpt-image-1.5", "gpt-image-2", "gpt-image-2.5-sunburst", "gpt-image-2.5-flare"] | None
+    ) = Field(
         default=None,
         description="OpenAI model to use for this specific style. If not set, will use the default model from connection settings.",
     )
