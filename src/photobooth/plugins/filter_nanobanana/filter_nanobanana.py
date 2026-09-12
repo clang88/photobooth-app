@@ -1,0 +1,382 @@
+import base64
+import hashlib
+import io
+import logging
+
+import textwrap
+
+import niquests as requests
+from PIL import Image, ImageDraw, ImageFont
+
+from photobooth.plugins import hookimpl
+from photobooth.plugins.base_plugin import BaseFilter
+from photobooth import CONFIG_PATH
+
+from .config import FilterNanobananaConfig
+from .model_catalog import GeminiModelLiteral, get_allowed_aspect_ratios, get_allowed_image_sizes, supports_image_size
+
+logger = logging.getLogger(__name__)
+
+class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
+    def __init__(self):
+        super().__init__()
+        self._config: FilterNanobananaConfig = FilterNanobananaConfig()
+
+        # Simple cache for generated images (in-memory)
+        self._cache: dict[str, Image.Image] = {}
+
+    @hookimpl
+    def mp_avail_filter(self) -> list[str]:
+        """Return all available AI filters."""
+        # Return all configured style_prompts
+        all_filters = [style.style_name for style in self._config.style_prompts]
+        return [self.unify(f) for f in all_filters]
+
+    @hookimpl
+    def mp_userselectable_filter(self) -> list[str]:
+        """Return user-selectable AI filters based on configuration."""
+        if not self._config.plugin_behavior.add_userselectable_filter:
+            return []
+
+        # Dynamically generate list from enabled style prompts + custom
+        selectable_filters = []
+
+        # Add all enabled style prompts
+        for style in self._config.style_prompts:
+            if style.enabled:
+                selectable_filters.append(style.style_name)
+
+        return [self.unify(f) for f in selectable_filters]
+
+    @hookimpl
+    def mp_filter_pipeline_step(self, image: Image.Image, plugin_filter: str, preview: bool) -> Image.Image | None:
+        """Main filter processing step."""
+        filter_name = self.deunify(plugin_filter)
+
+        if filter_name:  # If this is our filter, process it
+            try:
+                return self.do_filter(image, filter_name, preview)
+            except Exception as exc:
+                logger.error(f"AI filter '{filter_name}' failed: {exc}")
+                if self._config.plugin_behavior.enable_fallback_on_error:
+                    logger.info("Returning original image with error text due to AI filter error")
+                    return self._add_error_text(image.copy(), str(exc))
+                else:
+                    raise
+        return None
+
+    def do_filter(self, image: Image.Image, filter_type: str, preview: bool) -> Image.Image:
+        """Apply AI filter to the image."""
+        # Generate cache key
+        cache_key = self._generate_cache_key(image, filter_type, preview)
+
+        # Check cache first
+        if self._config.plugin_behavior.cache_results and cache_key in self._cache:
+            logger.debug(f"Using cached result for filter '{filter_type}'")
+            return self._cache[cache_key]
+
+        logger.info(f"Applying AI filter '{filter_type}'")
+
+        try:
+            # Apply the AI transformation
+            result_image = self._apply_gemini_filter(image, filter_type, preview)
+            # Cache the result
+            if self._config.plugin_behavior.cache_results:
+                self._cache[cache_key] = result_image
+
+            return result_image
+
+        except Exception as exc:
+            logger.error(f"Failed to apply AI filter '{filter_type}': {exc}")
+            raise
+
+    def _generate_cache_key(self, image: Image.Image, filter_type: str, preview: bool) -> str:
+        """Generate a cache key for the image and filter combination."""
+        # Create a hash of image data + filter settings
+        img_bytes = io.BytesIO()
+        image.save(img_bytes, format="PNG")
+        img_hash = hashlib.md5(img_bytes.getvalue()).hexdigest()[:16]
+
+        # Get model for this filter type to include in cache key
+        model = self._config.connection.default_model  # Default fallback
+        for style in self._config.style_prompts:
+            if style.style_name == filter_type:
+                model = style.model if style.model else self._config.connection.default_model
+                break
+
+        settings_hash = hashlib.md5(f"{filter_type}:{preview}:{model}".encode()).hexdigest()[:16]
+
+        return f"{img_hash}_{settings_hash}"
+
+    def _resize_image_if_needed(self, image: Image.Image) -> Image.Image:
+        """Resize image if it exceeds max dimensions."""
+        max_size = self._config.image_generation.max_input_image_size
+        
+        # Check if resizing is needed
+        if max(image.size) <= max_size:
+            return image
+            
+        # Calculate new size while maintaining aspect ratio
+        width, height = image.size
+        if width > height:
+            new_width = max_size
+            new_height = int((height * max_size) / width)
+        else:
+            new_height = max_size
+            new_width = int((width * max_size) / height)
+            
+        resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        logger.debug(f"Resized image from {image.size} to {resized_image.size}")
+        return resized_image
+
+    def _image_to_base64(self, image: Image.Image) -> str:
+        """Convert PIL Image to base64 string."""
+        # Resize if needed
+        image = self._resize_image_if_needed(image)
+        
+        format = self._config.image_generation.input_image_format.upper()
+        if format == "JPEG":
+            # Convert to RGB for JPEG (removes alpha channel)
+            if image.mode in ("RGBA", "LA", "P"):
+                image = image.convert("RGB")
+        
+        buffer = io.BytesIO()
+        image.save(buffer, format=format)
+        b64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        return b64_image
+
+    def _base64_to_image(self, base64_str: str) -> Image.Image:
+        """Convert base64 string to PIL Image."""
+        image_data = base64.b64decode(base64_str)
+        image = Image.open(io.BytesIO(image_data))
+        return image
+
+    def _apply_gemini_filter(self, image: Image.Image, filter_type: str, preview: bool) -> Image.Image:
+        """Apply filter using Google Gemini API."""
+        if not self._config.connection.gemini_api_key:
+            raise ValueError("Gemini API key not configured")
+
+        # For preview mode, for now we just return the normal image...
+        if preview:
+            return image
+
+        # Get style prompt and model for this filter type
+        style_prompt = None
+        model: GeminiModelLiteral | None = None
+        for style in self._config.style_prompts:
+            if style.style_name == filter_type:
+                if filter_type == "custom":
+                    try:
+                        with open(f"{CONFIG_PATH}/prompts/prompt.txt", "r") as f:
+                            style_prompt = f.read().strip()
+                    except Exception as e:
+                        logger.error(f"Error reading custom prompt: {e}")
+                        style_prompt = None
+                else:
+                    style_prompt = style.prompt
+                # Use style-specific model if available, otherwise fall back to default
+                model = style.model if style.model else self._config.connection.default_model
+                break
+
+        if style_prompt is None:
+            raise ValueError(f"Filter '{filter_type}' not found in style_prompts")
+        if model is None:
+            raise ValueError(f"No model resolved for filter '{filter_type}'")
+
+        # Convert image to base64
+        image_b64 = self._image_to_base64(image)
+        
+        # Determine mime type based on input format
+        input_format = self._config.image_generation.input_image_format
+        mime_type = f"image/{input_format}"
+
+        # Prepare API request according to official docs
+        headers = {
+            "x-goog-api-key": self._config.connection.gemini_api_key,
+            "Content-Type": "application/json",
+        }
+
+        # Build generation config based on model capabilities
+        generation_config = {}
+        image_config = {}
+        configured_aspect_ratio = self._config.image_generation.aspect_ratio
+        configured_image_size = self._config.image_generation.image_size
+
+        allowed_aspect_ratios = get_allowed_aspect_ratios(model)
+        if configured_aspect_ratio in allowed_aspect_ratios:
+            image_config["aspectRatio"] = configured_aspect_ratio
+        else:
+            logger.warning(
+                f"Configured aspect ratio '{configured_aspect_ratio}' is not supported by model '{model}'. "
+                "Omitting aspectRatio from imageConfig."
+            )
+
+        if supports_image_size(model):
+            allowed_image_sizes = get_allowed_image_sizes(model)
+            if configured_image_size in allowed_image_sizes:
+                image_config["imageSize"] = configured_image_size
+            else:
+                logger.warning(
+                    f"Configured image size '{configured_image_size}' is not supported by model '{model}'. "
+                    "Omitting imageSize from imageConfig."
+                )
+
+        generation_config["imageConfig"] = image_config
+        
+        generation_config["responseModalities"] = self._config.image_generation.response_modalities
+
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": style_prompt},
+                        {
+                            "inlineData": {
+                                "mimeType": mime_type,
+                                "data": image_b64,
+                            }
+                        },
+                    ]
+                }
+            ],
+            "generationConfig": generation_config
+        }
+
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+        max_retries = self._config.connection.max_retries
+        last_exception = None
+
+        for attempt in range(1 + max_retries):
+            try:
+                logger.info(f"Sending request to Gemini API with model '{model}' (attempt {attempt + 1}/{1 + max_retries})...")
+                logger.debug(f"Prompt: {style_prompt}") 
+
+                session = requests.Session(disable_http3=True)
+                response = session.post(
+                    api_url, 
+                    headers=headers, 
+                    json=payload, 
+                    timeout=self._config.connection.timeout_seconds
+                )
+                session.close()
+                logger.debug(f"Received response with status code: {response.status_code}")
+
+                if response.status_code != 200:
+                    logger.error(f"Gemini API returned error status {response.status_code}: {response.text}")
+                    raise RuntimeError(f"Gemini API error: {response.status_code} - {response.text}")
+
+                logger.debug("Parsing JSON response...")
+                result = response.json()
+                logger.debug(f"Response keys: {list(result.keys()) if result else 'None'}")
+
+                # Check for API errors in response
+                if "error" in result:
+                    error_msg = result["error"].get("message", "Unknown error")
+                    logger.error(f"Gemini API error: {error_msg}")
+                    raise RuntimeError(f"Gemini API error: {error_msg}")
+
+                # Extract generated content according to API docs
+                candidates = result.get("candidates", [])
+                if not candidates:
+                    logger.error(f"No candidates in response: {result}")
+                    raise RuntimeError("No generated content received from Gemini")
+
+                candidate = candidates[0]
+                finish_reason = candidate.get("finishReason")
+                content = candidate.get("content", {})
+                parts = content.get("parts", [])
+
+                # Look for generated image in response parts
+                generated_image = None
+                gemini_text_response = None
+                for part in parts:
+                    if "inlineData" in part:
+                        logger.debug("Found generated image in response")
+                        inline_data = part["inlineData"]
+                        img_data_b64 = inline_data["data"]
+                        generated_image = self._base64_to_image(img_data_b64)
+                        break
+                    elif "text" in part:
+                        gemini_text_response = part["text"]
+                        logger.warning(f"Gemini response contains text instead of image: {gemini_text_response[:200]}...")
+
+                if generated_image is None:
+                    reason = gemini_text_response or finish_reason
+                    error_detail = "No image data received from AI"
+                    if reason:
+                        error_detail += f":\n{reason}"
+                    logger.error(f"No image generated. finishReason={finish_reason}, parts={parts}")
+                    raise RuntimeError(error_detail)
+
+                logger.info(f"Successfully generated image using '{model}' model")
+                return generated_image
+
+            except requests.exceptions.Timeout as e:
+                last_exception = e
+                logger.warning(f"Request timed out (attempt {attempt + 1}/{1 + max_retries}): {e}")
+                if attempt < max_retries:
+                    logger.info("Retrying...")
+                    continue
+                logger.error(f"All {1 + max_retries} attempts timed out after {self._config.connection.timeout_seconds}s each")
+                raise RuntimeError(f"Request to Gemini API timed out after {1 + max_retries} attempt(s): {e}") from e
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Request failed: {e}")
+                raise RuntimeError(f"Request to Gemini API failed: {e}") from e
+            except Exception as e:
+                logger.error(f"Unexpected error during API call: {e}")
+                raise
+
+        # Should not be reached, but just in case
+        raise RuntimeError(f"Request to Gemini API failed after {1 + max_retries} attempt(s)") from last_exception
+
+    def _add_error_text(self, image: Image.Image, error_message: str) -> Image.Image:
+        """Overlay error text on the lower part of the fallback image."""
+        draw = ImageDraw.Draw(image)
+        width, height = image.size
+
+        # Scale font size relative to image width
+        font_size = max(16, width // 30)
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+        except (OSError, IOError):
+            try:
+                font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+            except (OSError, IOError):
+                font = ImageFont.load_default()
+
+        # Wrap text to fit image width (approx chars per line)
+        max_chars = max(20, width // (font_size // 2))
+        wrapped = textwrap.fill(error_message, width=max_chars)
+        lines = wrapped.split("\n")
+        # Keep at most 4 lines to avoid covering too much of the image
+        if len(lines) > 4:
+            lines = lines[:4]
+            lines[-1] = lines[-1][:max_chars - 3] + "..."
+        text = "\n".join(lines)
+
+        # Calculate text position (top of image)
+        bbox = draw.multiline_textbbox((0, 0), text, font=font)
+        text_height = bbox[3] - bbox[1]
+        text_width = bbox[2] - bbox[0]
+        padding = 10
+        x = (width - text_width) // 2
+        y = padding * 2
+
+        # Draw semi-transparent dark background
+        bg_box = (x - padding, y - padding, x + text_width + padding, y + text_height + padding)
+        overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        overlay_draw = ImageDraw.Draw(overlay)
+        overlay_draw.rectangle(bg_box, fill=(0, 0, 0, 160))
+        image = Image.alpha_composite(image.convert("RGBA"), overlay).convert(image.mode)
+
+        # Draw text on the composited image
+        draw = ImageDraw.Draw(image)
+        draw.multiline_text((x, y), text, fill=(255, 255, 255), font=font)
+
+        return image
+
+    def clear_cache(self):
+        """Clear the image cache."""
+        self._cache.clear()
+        logger.info("AI filter cache cleared")
