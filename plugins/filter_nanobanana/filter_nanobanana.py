@@ -99,12 +99,12 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
 
     def _generate_preview_image(self, filter_type: str) -> Image.Image:
         """Generate a placeholder preview image for a filter style."""
-        width, height = 800, 800
+        width, height = 250, 250
         image = Image.new("RGB", (width, height), (245, 245, 245))
 
         # Load bundled Bitcount font (cross-platform, no OS dependency)
         font_path = Path(__file__).parent / "Bitcount.ttf"
-        font_size = 120
+        font_size = 37.5
         try:
             font = ImageFont.truetype(str(font_path), font_size)
         except OSError:
@@ -176,7 +176,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
 
         # "AI" badge
         badge_font_path = Path(__file__).parent / "Inter.ttf"
-        badge_font_size = 120
+        badge_font_size = 34
         try:
             badge_font = ImageFont.truetype(str(badge_font_path), badge_font_size)
         except OSError:
@@ -188,8 +188,8 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         text_h = text_bbox[3] - text_bbox[1]
 
         # Pill = text + padding, placed with a margin from the top-right corner
-        pad_x, pad_y = 16, 12
-        margin = 20
+        pad_x, pad_y = 5, 3.5
+        margin = 6.25
         pill_w = text_w + 2 * pad_x
         pill_h = text_h + 2 * pad_y
         pill_left = width - margin - pill_w
@@ -197,7 +197,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
 
         draw.rounded_rectangle(
             (pill_left, pill_top, pill_left + pill_w, pill_top + pill_h),
-            radius=16,
+            radius=5,
             fill=(80, 120, 220),
         )
 
