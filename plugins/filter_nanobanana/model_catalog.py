@@ -4,6 +4,7 @@ GeminiModelLiteral = Literal[
     "gemini-2.5-flash-image",
     "gemini-3-pro-image",
     "gemini-3.1-flash-image",
+    "gemini-3.1-flash-lite-image",
 ]
 
 GEMINI_MODEL_VALUES: tuple[GeminiModelLiteral, ...] = get_args(GeminiModelLiteral)
@@ -28,6 +29,7 @@ MODEL_IMAGE_SIZES: dict[GeminiModelLiteral, tuple[str, ...]] = {
     "gemini-2.5-flash-image": (),
     "gemini-3-pro-image": ("1K", "2K", "4K"),
     "gemini-3.1-flash-image": ("512", "1K", "2K", "4K"),
+    "gemini-3.1-flash-lite-image": ("1K",),
 }
 
 

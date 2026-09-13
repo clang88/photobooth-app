@@ -21,7 +21,7 @@ class ConnectionSettings(BaseModel):
 
     default_model: GeminiModelLiteral = Field(
         default=DEFAULT_GEMINI_MODEL,
-        description="Default Google Gemini model to use for image generation when no model is specified in style prompts. Use flash-image for speed, pro-image for quality.",
+        description="Default Google Gemini model to use for image generation when no model is specified in style prompts. Use flash-lite-image for maximum speed and lowest cost (1K only), flash-image for speed, pro-image for quality.",
     )
 
     timeout_seconds: int = Field(
