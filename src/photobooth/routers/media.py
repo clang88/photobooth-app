@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 media_router = APIRouter(prefix="/media", tags=["media"])
 
 
-def _serve_media_item(mediaitem_id: UUID, dimension: DimensionTypes):
+def _serve_media_item(mediaitem_id: UUID, dimension: DimensionTypes, processed: bool = True):
     # get/head have same handler but for openapi generation, it needs one method per function call otherwise there are duplicates.
 
     try:
@@ -21,7 +21,7 @@ def _serve_media_item(mediaitem_id: UUID, dimension: DimensionTypes):
         headers = {"Cache-Control": "max-age=86400"}
 
         item = container.mediacollection_service.get_item(mediaitem_id)
-        cacheditem = container.mediacollection_service.cache.get_cached_repr(item, dimension, processed=True)
+        cacheditem = container.mediacollection_service.cache.get_cached_repr(item, dimension, processed=processed)
 
         return FileResponse(cacheditem.filepath, status_code=status.HTTP_200_OK, headers=headers)
 
@@ -32,11 +32,11 @@ def _serve_media_item(mediaitem_id: UUID, dimension: DimensionTypes):
 
 
 @media_router.get("/{dimension}/{mediaitem_id}")
-def api_getitems_get(mediaitem_id: UUID, dimension: DimensionTypes):
-    return _serve_media_item(mediaitem_id, dimension)
+def api_getitems_get(mediaitem_id: UUID, dimension: DimensionTypes, processed: bool = True):
+    return _serve_media_item(mediaitem_id, dimension, processed=processed)
 
 
 @media_router.head("/{dimension}/{mediaitem_id}")
-def api_getitems_head(mediaitem_id: UUID, dimension: DimensionTypes):
+def api_getitems_head(mediaitem_id: UUID, dimension: DimensionTypes, processed: bool = True):
     """head used for download portal to check if the file is available without downloading it."""
-    return _serve_media_item(mediaitem_id, dimension)
+    return _serve_media_item(mediaitem_id, dimension, processed=processed)
