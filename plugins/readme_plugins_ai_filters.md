@@ -117,6 +117,8 @@ Both plugins are configured in their respective JSON files:
 | `output_compression` | ❌ | ✅ | JPEG/WebP compression level (0–100%). |
 | `moderation` | ❌ | ✅ | Content moderation level (low/auto). |
 
+**Note:** Parameters not supported by the selected model will be logged by photobooth-app and ignored/fall back to a predefined default.
+
 ### Plugin Behavior Settings (`plugin_behavior`) — shared by both plugins
 
 | Setting | Description |
@@ -153,7 +155,7 @@ Each plugin also defines a special `"custom"` style name. When this filter is se
 
 ### Preview Optimization
 
-When a filter preview is requested (`preview=true`), the pipeline skips compute-intensive steps (e.g., background removal). The AI filter plugin itself returns the original image unchanged during preview mode, so the UI can render a responsive gallery. The full transformation is only applied when the user confirms a filter choice and the image is processed for storage/production.
+When a filter preview is requested (`preview=true`), the pipeline skips compute-intensive steps (e.g., background removal). The AI filter plugin returns a stylized image with the prompt name and provider logo during preview mode, so the UI can render a responsive gallery. The full transformation is only applied when the user confirms a filter choice and the image is processed for storage/production.
 
 ---
 
@@ -220,6 +222,6 @@ The error text overlay:
 | Filters not applying in actions | Filter name doesn't match `PluginFilters.Enum` member | Ensure the config uses the full qualified name like `"FilterOpenai.sketch"` |
 | API returns error 401 | Wrong or expired API key | Check `config/plugin_filter_*.json` and verify the key with the provider |
 | API returns error 429 | Rate limiting / too many requests | Increase `timeout_seconds`, reduce concurrency, or check model quotas |
-| Slow processing | Large input images hitting the API | Increase `max_input_image_size` or check network latency to API endpoint |
+| Slow processing | Large input images hitting the API / slow model | Switch model (`gemini-3.1-flash-image` or `gemini-3.1-flash-lite-image` or `gpt-image-2.5-flare`), decrease `max_input_image_size` or check network latency to API endpoint |
 | Black/dark fallback image (no text) | PIL or ImageDraw is not available / error overlay failed to load | The filter should show an error text overlay. If it fails silently, check logs in `log/`. |
-| Prompt not loaded from file | `prompts/prompt.txt` doesn't exist or config path is wrong | Ensure `{CONFIG_PATH}/prompts/prompt.txt` exists and is readable |
+| Custom prompt not loaded from file | `prompts/prompt.txt` doesn't exist or config path is wrong | Ensure `{CONFIG_PATH}/prompts/prompt.txt` exists and is readable |

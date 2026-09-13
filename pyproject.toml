@@ -129,7 +129,7 @@ ignore = [
 "src/photobooth/services/config/*" = ["E501"]
 "src/photobooth/plugins/*/config.py" = ["E501"]
 "plugins/*/config.py" = ["E501"]
-"plugins/**/*.ipynb" = ["E501"]
+"**/*.ipynb" = ["ALL"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
