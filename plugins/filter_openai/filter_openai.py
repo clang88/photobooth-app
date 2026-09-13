@@ -12,7 +12,7 @@ from photobooth.plugins import hookimpl
 from photobooth.plugins.base_plugin import BaseFilter
 
 from .config import FilterOpenAiConfig
-from .model_catalog import OPENAI_MODEL_CONFIGS
+from .model_catalog import OPENAI_MODEL_CONFIGS, OpenAIModelLiteral
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +207,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
         return image
 
-    def _filter_params_for_model(self, model: str, requested_params: dict) -> dict:
+    def _filter_params_for_model(self, model: OpenAIModelLiteral, requested_params: dict) -> dict:
         """Filter parameters based on model capabilities and apply defaults."""
         model_config = OPENAI_MODEL_CONFIGS.get(model)
         if not model_config:
@@ -231,7 +231,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
                             f"Parameter '{param_name}' value '{param_value}' not supported by model '{model}'. Supported values: {supported_values}. "
                             f"Using default '{defaults.get(param_name)}'"
                         )
-                        filtered_params[param_name] = defaults.get(param_name)
+                        filtered_params[param_name] = defaults.get(param_name, "")
             else:
                 logger.debug(f"Parameter '{param_name}' not supported by model '{model}', skipping")
 
@@ -248,7 +248,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
         # Get style prompt and model for this filter type
         style_prompt = None
-        model = None
+        model: OpenAIModelLiteral = self._config.connection.default_model
         for style in self._config.style_prompts:
             if style.style_name == filter_type:
                 if filter_type == "custom":

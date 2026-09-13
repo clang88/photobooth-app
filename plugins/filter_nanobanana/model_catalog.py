@@ -7,7 +7,7 @@ GeminiModelLiteral = Literal[
     "gemini-3.1-flash-image",
 ]
 
-GEMINI_MODEL_VALUES: tuple[str, ...] = get_args(GeminiModelLiteral)
+GEMINI_MODEL_VALUES: tuple[GeminiModelLiteral, ...] = get_args(GeminiModelLiteral)
 
 DEFAULT_GEMINI_MODEL: GeminiModelLiteral = "gemini-3.1-flash-image"
 

@@ -104,7 +104,7 @@ concurrency = ["thread", "multiprocessing"]
 [tool.basedpyright]
 venvPath = "."
 venv = ".venv"
-ignore = ["./experimental/"]
+ignore = ["./experimental/", "plugins/filter_nanobanana/tryouts.ipynb"]
 typeCheckingMode = "standard"
 
 
