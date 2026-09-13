@@ -123,16 +123,70 @@ class FilterOpenAiConfig(BaseConfig):
     # Style prompts for different filter types
     style_prompts: list[StylePrompt] = Field(
         default=[
-            StylePrompt(style_name="cartoon", prompt="cartoon style, animated, colorful, disney-like illustration"),
-            StylePrompt(style_name="sketch", prompt="pencil sketch, black and white drawing, artistic sketch"),
-            StylePrompt(style_name="watercolor", prompt="watercolor painting, soft brush strokes, artistic"),
-            StylePrompt(style_name="oil_painting", prompt="oil painting, classical art style, rich textures"),
-            StylePrompt(style_name="vintage", prompt="vintage photography, sepia tones, retro aesthetic"),
-            StylePrompt(style_name="cyberpunk", prompt="cyberpunk style, neon lights, futuristic, sci-fi aesthetic"),
-            StylePrompt(style_name="fantasy", prompt="fantasy art, magical, ethereal, mystical atmosphere"),
-            StylePrompt(style_name="anime", prompt="Redraw this portrait in a style similar to Howl's Moving Castle by Studio Ghibli."),
             StylePrompt(
-                style_name="custom", prompt="This prompt is read from the 'prompt.txt' file in the {CONFIG_PATH}/prompts/ folder. Do not modify!"
+                style_name="1996",
+                prompt="Keep framing and faces unchanged. Dress the people in typical 1990s attire (oversized T-Shirts, colorful windbreakers, flannel shirts etc.). In the style of a throw-away film camera photo and imprint the date 08.10.1996 in the style of 90s disposable cameras. Maintain their exact faces and poses.",
+            ),
+            StylePrompt(
+                style_name="kaleidoscope",
+                prompt="Symmetrical kaleidoscope portrait effect, repeating geometric mirror patterns while keeping the subject's face fully recognizable and centered.",
+            ),
+            StylePrompt(style_name="ghibli", prompt="Redraw this in the style of Studio Ghibli. Make older people look a bit younger than they are."),
+            StylePrompt(
+                style_name="jojo",
+                prompt="Redraw this portrait in the style of the new anime version of Jojo's Bizarre Adventure, while keeping the facial features and hair of the people mostly unchanged. Slightly exaggerate the poses and use vibrant colors with thick lines and stylized text.",
+            ),
+            StylePrompt(style_name="cartoon", prompt="Transform this portrait into a cartoon style, animated, colorful, disney-like illustration"),
+            StylePrompt(
+                style_name="sketch",
+                prompt="Pencil sketch, black and white drawing, artistic sketch. Keep people recognizable and maintain their poses.",
+            ),
+            StylePrompt(style_name="watercolor", prompt="Watercolor painting, soft brush strokes, artistic."),
+            StylePrompt(style_name="vintage", prompt="Transform this portrait to vintage photography style, sepia tones, retro aesthetic"),
+            StylePrompt(
+                style_name="barbie",
+                prompt="Redraw this portrait in the style of Mattel's Barbie, vibrant colors, fashionable outfits, and playful aesthetic. Make everyone plastic, but keep poses and framing.",
+            ),
+            StylePrompt(
+                style_name="fantasy",
+                prompt='Photorealistic Elven style transfer. Keep subject\'s features and background geometry 1:1, but dress the subject(s) in fancy elven clothes. Adjust lighting to be low-contrast and ethereal. Add "The Fellowship of the Ring" film grain and color palette. Subtle elven ear modification. High-end fantasy film aesthetic, soft romantic lighting, shimmering highlights, 8k resolution, cinematic bloom.',
+            ),
+            StylePrompt(
+                style_name="dragonball",
+                prompt="Redraw this in the style of Classic Dragon Ball by Akira Toriyama, don't change the subjects features and poses too much. Clean, bold anime style with sharp linework, simple but expressive faces with the typical Toriyama eyes, large spiky hair and strong silhouettes. Bright, flat colors with minimal shading, clear outlines, and a playful yet powerful tone. Characters appear energetic and iconic, with a mix of humor and intense martial-arts action.",
+            ),
+            StylePrompt(style_name="pixar", prompt="Redraw this portrait in Pixar animation style, 3D rendered appearance, colorful and friendly"),
+            StylePrompt(
+                style_name="ken",
+                prompt="Redraw this in a hyper-detailed 1980s retro anime style, 'Fist of the North Star' aesthetic. Men are depicted with extreme muscular hypertrophy, defined deltoids, and rugged, scarred features. Women are drawn with ethereal elegance, large expressive eyes, and soft porcelain skin. Character poses are dramatic and high-tension with heavy black ink cross-hatching and intense 'Gekiga' line work. Dramatic high-contrast shadows, cinematic desert wasteland lighting, 8mm film grain texture.",
+            ),
+            StylePrompt(
+                style_name="tatoo",
+                prompt="Make the people in the photo look like Yakuza, show their tattoos prominently, but avoid face tatoos. Remember, NO face tattoos. Keep their faces, poses, and expressions unchanged. Do not add or remove people!",
+            ),
+            StylePrompt(
+                style_name="mountain",
+                prompt="Put the people on a mountain top, wearing hiking gear and backpacks. Keep their faces, poses, and expressions unchanged. Draw it in a realistic style. Do not add or remove people!",
+            ),
+            StylePrompt(
+                style_name="chibi_musicians",
+                prompt="Put all the people in the image on a music stage, playing instruments, while keeping their faces and expressions recognizable and the poses unchanged. Do it in a chibi cute anime style.",
+            ),
+            StylePrompt(
+                style_name="lego",
+                prompt="Redraw this portrait in the style of LEGO minifigures, keeping the subjects' facial features and poses recognizable. Use bright, blocky colors and maintain the iconic LEGO aesthetic.",
+            ),
+            StylePrompt(
+                style_name="8-bit",
+                prompt="Redraw all people as a JRPG 8-bit party top-down view. Keep them recognizable but draw them in a pixalated 8-bit style. Don't add names to the characters.",
+            ),
+            StylePrompt(
+                style_name="impressionist",
+                prompt="Redraw this portrait in the style of Impressionist painters like Claude Monet, Van Gogh or Pierre-Auguste Renoir, with visible brushstrokes, soft lighting, and a focus on capturing the overall atmosphere rather than fine details.",
+            ),
+            StylePrompt(
+                style_name="custom",
+                prompt="This prompt is read from a the 'prompt.txt' file in the {CONFIG_PATH}/photobooth-data/prompts/ folder. Do not modify!",
             ),
         ],
         description="Prompt templates for different AI filter styles. These guide the AI generation process.",

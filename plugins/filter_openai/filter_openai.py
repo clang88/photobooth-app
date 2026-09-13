@@ -3,9 +3,10 @@ import hashlib
 import io
 import logging
 import textwrap
-from typing import Any
+from typing import Any, cast
 
 import requests
+from anyio import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from photobooth import CONFIG_PATH
@@ -95,6 +96,122 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         except Exception as exc:
             logger.error(f"Failed to apply AI filter '{filter_type}': {exc}")
             raise
+
+    def _generate_preview_image(self, filter_type: str) -> Image.Image:
+        """Generate a placeholder preview image for a filter style."""
+        width, height = 800, 800
+        image = Image.new("RGB", (width, height), (245, 245, 245))
+
+        # Load bundled Bitcount font (cross-platform, no OS dependency)
+        font_path = Path(__file__).parent / "Bitcount.ttf"
+        font_size = 120
+        try:
+            font = ImageFont.truetype(str(font_path), font_size)
+        except OSError:
+            font = ImageFont.load_default()
+
+        # Load and resize logo for background
+        logo_path = Path(__file__).parent / "logo.png"
+        if logo_path.exists():
+            try:
+                logo = Image.open(str(logo_path)).convert("RGBA")
+                # Resize logo to fit nicely as background (30% of canvas width)
+                logo_aspect = logo.height / logo.width
+                logo_w = int(width * 0.3)
+                logo_h = int(logo_w * logo_aspect)
+                logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
+                # Center and composite with low opacity
+                logo_overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+                logo_x = (width - logo_w) // 2
+                logo_y = (height - logo_h) // 2
+                # Make logo semi-transparent
+                logo_r, logo_g, logo_b, logo_a = logo.split()
+                logo_a = logo_a.point(lambda p: cast(int, p) // 3)  # Reduce alpha to 1/3
+                logo = Image.merge("RGBA", (logo_r, logo_g, logo_b, logo_a))
+                logo_overlay.paste(logo, (logo_x, logo_y))
+                image = Image.alpha_composite(image.convert("RGBA"), logo_overlay).convert("RGB")
+            except Exception:
+                pass  # Silently skip logo if it fails
+
+        # Create draw object AFTER logo processing (image may have been replaced)
+        draw = ImageDraw.Draw(image)
+
+        # Estimate average character width for wrapping
+        max_chars_per_line = 12
+
+        # Wrap by words
+        words = filter_type.split("_")
+        lines: list[str] = []
+        current_line = ""
+        for word in words:
+            if current_line:
+                len_current = len(current_line) + 1 + len(word)
+            else:
+                len_current = len(word)
+            if len_current <= max_chars_per_line:
+                if current_line:
+                    current_line += " " + word
+                else:
+                    current_line = word
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+        if current_line:
+            lines.append(current_line)
+        if not lines:
+            lines = [filter_type[:max_chars_per_line]]
+
+        # Calculate vertical centering for all lines
+        line_heights = [draw.textbbox((0, 0), line, font=font)[3] for line in lines]
+        total_text_height = sum(line_heights) + 10 * (len(lines) - 1)  # 10px gap between lines
+        y_start = (height - total_text_height) // 2
+
+        for i, line in enumerate(lines):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_w = bbox[2] - bbox[0]
+            x = (width - text_w) // 2
+            y = y_start + sum(line_heights[:i]) + 10 * i
+            draw.text((x, y), line, fill=(50, 50, 50), font=font)
+
+        # "AI" badge
+        badge_font_path = Path(__file__).parent / "Inter.ttf"
+        badge_font_size = 120
+        try:
+            badge_font = ImageFont.truetype(str(badge_font_path), badge_font_size)
+        except OSError:
+            badge_font = ImageFont.load_default()
+
+        # Measure the "AI" text so the pill fits it exactly
+        text_bbox = draw.textbbox((0, 0), "AI", font=badge_font)
+        text_w = text_bbox[2] - text_bbox[0]
+        text_h = text_bbox[3] - text_bbox[1]
+
+        # Pill = text + padding, placed with a margin from the top-right corner
+        pad_x, pad_y = 16, 12
+        margin = 20
+        pill_w = text_w + 2 * pad_x
+        pill_h = text_h + 2 * pad_y
+        pill_left = width - margin - pill_w
+        pill_top = margin
+
+        draw.rounded_rectangle(
+            (pill_left, pill_top, pill_left + pill_w, pill_top + pill_h),
+            radius=16,
+            fill=(80, 120, 220),
+        )
+
+        # anchor="mm" centers the text exactly at the pill's center,
+        # regardless of the font's internal metrics
+        draw.text(
+            (pill_left + pill_w / 2, pill_top + pill_h / 2),
+            "AI",
+            fill=(255, 255, 255),
+            font=badge_font,
+            anchor="mm",
+        )
+
+        return image
 
     def _generate_cache_key(self, image: Image.Image, filter_type: str, preview: bool) -> str:
         """Generate a cache key for the image and filter combination."""
@@ -247,9 +364,9 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         if not self._config.connection.openai_api_key:
             raise ValueError("OpenAI API key not configured")
 
-        # For preview mode, for now we just return the normal image...
+        # For preview mode, generate and return a preview image instead of applying the full filter.
         if preview:
-            return image
+            return self._generate_preview_image(filter_type)
 
         # Get style prompt and model for this filter type
         style_prompt = None

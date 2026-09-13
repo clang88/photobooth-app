@@ -100,112 +100,69 @@ class FilterNanobananaConfig(BaseConfig):
     style_prompts: list[StylePrompt] = Field(
         default=[
             StylePrompt(
-                style_name="jojo",
-                prompt="Redraw this portrait in the style of Jojo's Bizarre Adventure, exaggerated poses and vibrant colors with thick lines.",
+                style_name="1996",
+                prompt="Keep framing and faces unchanged. Dress the people in typical 1990s attire (oversized T-Shirts, colorful windbreakers, flannel shirts etc.). In the style of a throw-away film camera photo and imprint the date 08.10.1996 in the style of 90s disposable cameras. Maintain their exact faces and poses.",
             ),
-            StylePrompt(style_name="anime", prompt="Redraw this in the style of Studio Ghibli. Make older people look a bit younger than they are."),
+            StylePrompt(
+                style_name="kaleidoscope",
+                prompt="Symmetrical kaleidoscope portrait effect, repeating geometric mirror patterns while keeping the subject's face fully recognizable and centered.",
+            ),
+            StylePrompt(style_name="ghibli", prompt="Redraw this in the style of Studio Ghibli. Make older people look a bit younger than they are."),
+            StylePrompt(
+                style_name="jojo",
+                prompt="Redraw this portrait in the style of the new anime version of Jojo's Bizarre Adventure, while keeping the facial features and hair of the people mostly unchanged. Slightly exaggerate the poses and use vibrant colors with thick lines and stylized text.",
+            ),
+            StylePrompt(style_name="cartoon", prompt="Transform this portrait into a cartoon style, animated, colorful, disney-like illustration"),
+            StylePrompt(
+                style_name="sketch",
+                prompt="Pencil sketch, black and white drawing, artistic sketch. Keep people recognizable and maintain their poses.",
+            ),
+            StylePrompt(style_name="watercolor", prompt="Watercolor painting, soft brush strokes, artistic."),
+            StylePrompt(style_name="vintage", prompt="Transform this portrait to vintage photography style, sepia tones, retro aesthetic"),
+            StylePrompt(
+                style_name="barbie",
+                prompt="Redraw this portrait in the style of Mattel's Barbie, vibrant colors, fashionable outfits, and playful aesthetic. Make everyone plastic, but keep poses and framing.",
+            ),
+            StylePrompt(
+                style_name="fantasy",
+                prompt='Photorealistic Elven style transfer. Keep subject\'s features and background geometry 1:1, but dress the subject(s) in fancy elven clothes. Adjust lighting to be low-contrast and ethereal. Add "The Fellowship of the Ring" film grain and color palette. Subtle elven ear modification. High-end fantasy film aesthetic, soft romantic lighting, shimmering highlights, 8k resolution, cinematic bloom.',
+            ),
             StylePrompt(
                 style_name="dragonball",
                 prompt="Redraw this in the style of Classic Dragon Ball by Akira Toriyama, don't change the subjects features and poses too much. Clean, bold anime style with sharp linework, simple but expressive faces with the typical Toriyama eyes, large spiky hair and strong silhouettes. Bright, flat colors with minimal shading, clear outlines, and a playful yet powerful tone. Characters appear energetic and iconic, with a mix of humor and intense martial-arts action.",
             ),
-            StylePrompt(style_name="cartoon", prompt="Transform this portrait into a cartoon style, animated, colorful, disney-like illustration"),
-            StylePrompt(style_name="sketch", prompt="Convert this portrait to a pencil sketch, black and white drawing, artistic sketch"),
-            StylePrompt(style_name="watercolor", prompt="Transform this portrait into a watercolor painting, soft brush strokes, artistic"),
-            StylePrompt(style_name="oil_painting", prompt="Convert this portrait to an oil painting, classical art style, rich textures"),
-            StylePrompt(style_name="vintage", prompt="Transform this portrait to vintage photography style, sepia tones, retro aesthetic"),
-            StylePrompt(style_name="cyberpunk", prompt="Redraw this portrait in cyberpunk style, neon lights, futuristic, sci-fi aesthetic"),
-            StylePrompt(
-                style_name="fantasy",
-                prompt='hotorealistic Elven style transfer. Keep subject\'s features and background geometry 1:1, but dress the subject(s) in fancy elven clothes. Adjust lighting to be low-contrast and ethereal. Add "The Fellowship of the Ring" film grain and color palette. Subtle elven ear modification. High-end fantasy film aesthetic, soft romantic lighting, shimmering highlights, 8k resolution, cinematic bloom.',
-            ),
             StylePrompt(style_name="pixar", prompt="Redraw this portrait in Pixar animation style, 3D rendered appearance, colorful and friendly"),
             StylePrompt(
-                style_name="custom",
-                prompt="This prompt is read from a the 'prompt.txt' file in the {CONFIG_PATH}/photobooth-data/prompts/ folder. Do not modify!",
+                style_name="ken",
+                prompt="Redraw this in a hyper-detailed 1980s retro anime style, 'Fist of the North Star' aesthetic. Men are depicted with extreme muscular hypertrophy, defined deltoids, and rugged, scarred features. Women are drawn with ethereal elegance, large expressive eyes, and soft porcelain skin. Character poses are dramatic and high-tension with heavy black ink cross-hatching and intense 'Gekiga' line work. Dramatic high-contrast shadows, cinematic desert wasteland lighting, 8mm film grain texture.",
             ),
             StylePrompt(
-                style_name="4_vacation",
-                prompt="Dress the people in vacation attire, including umbrellas, sunglasses and hats. Maintain their exact faces and poses.",
-            ),
-            StylePrompt(
-                style_name="5_bachelor_party",
-                prompt="Put the people into a bachelor party scene, with flashing lights, confetti, videogames (PS4) and baskets of stuff to sell. They all wear party hats. Keep their faces and poses unchanged.",
-            ),
-            StylePrompt(
-                style_name="6_vacation_2",
-                prompt="Apply a light filter that overlays a semi_transparent collage of passport entry stamps from different countries (e.g., Austria, Italy, Spain, Thailand) across the image and some airplanes and trains, *avoiding* covering the people's faces. Keep the subjects and background unchanged.",
-            ),
-            StylePrompt(
-                style_name="7_train",
-                prompt="Put old_fashioned train conductors hats on all the people in the image and put a steam_powered train into the background. Keep their faces, poses, and expressions unchanged. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="8_car",
-                prompt="Make all the people in the image sit on their own small kid's toy car. Keep their faces and expressions unchanged, but adapt their poses to fit them in the car. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="9_hairstyle",
-                prompt="Make all people in the photo bald and add a sparkle to their head. Keep their faces (including beards), poses, and expressions unchanged. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="10_200km",
-                prompt="Make all the people in the image look like adventurers and travelers with dirty and worn clothes. They wear backpacks and heavy traveling boots. The person in the middle holds a map and a compass. Keep their faces, poses, and expressions as well as the background unchanged. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="11_pet",
-                prompt="Add photorealistic pet dinosaurs on a leash to each person. Add one T-Rex in the background trying to fit the frame. Keep their faces, poses, and expressions unchanged, but adapt the poses if necessary to have them sit in their chairs. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="12_teacher",
-                prompt="Redraw the image in an anime style, with the people dressed as students in a classroom setting. Keep their faces, poses, and expressions recognizable. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="13_musicians",
-                prompt="Put all the people in the image on a music stage, playing instruments, while keeping their faces, poses, and expressions recognizable. Do it in a chibi cute anime style.",
-            ),
-            StylePrompt(
-                style_name="14_endurance",
-                prompt="Put the people on a track and field racing track. They are wearing sportswear and running shoes. Keep their faces, and expressions recognizable. Draw it in a black and white sketch like style. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="15_mountain",
-                prompt="Put the people on a mountain top, wearing hiking gear and backpacks. Keep their faces, poses, and expressions unchanged. Draw it in a realistic style. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="16_spicy",
-                prompt="Make all the people in the image spit fire as they ate extremely spicy food. They are sweaty and red but happy. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="17_virgo",
-                prompt="Make all the people in the image look like fair men or women dressed like the zodiac sign Virgo. Put them in white tunicas and give them flowing beautiful hair. Keep their faces, poses, and expressions unchanged. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="20_glasses",
-                prompt="Give all the people in the image googly eyes. Keep their faces, poses, and expressions unchanged. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="21_multilingual",
-                prompt="Add speech bubbles to the top of the peoples heads in the image, saying funny things in a different language (Japanese, Chinese, English, Spanish, German, Italian). Keep their faces, poses, and expressions unchanged. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="22_aries",
-                prompt="Give all people in the piture horns like a ram. Keep their faces, poses, and expressions unchanged. Do not add or remove people!",
-            ),
-            StylePrompt(
-                style_name="23_tatoo",
+                style_name="tatoo",
                 prompt="Make the people in the photo look like Yakuza, show their tattoos prominently, but avoid face tatoos. Remember, NO face tattoos. Keep their faces, poses, and expressions unchanged. Do not add or remove people!",
             ),
             StylePrompt(
-                style_name="24_series",
-                prompt="Put the people inside of a TV and make it look like romantic NETFLIX TV show titled 'Wedding Season'. Avoid changing their faces, poses or expressions. Do not add or remove people!",
+                style_name="mountain",
+                prompt="Put the people on a mountain top, wearing hiking gear and backpacks. Keep their faces, poses, and expressions unchanged. Draw it in a realistic style. Do not add or remove people!",
             ),
             StylePrompt(
-                style_name="25_gamers",
-                prompt="Put all the people in this image into a 2D side_scroller beat 'em up video game scene. Make them all fight a godzilla with a bride veil. Keep them recognizable but draw them in a pixalated 8-bit style. Don't add names to the characeters, only the bridezilla healthbar should have a name.",
+                style_name="chibi_musicians",
+                prompt="Put all the people in the image on a music stage, playing instruments, while keeping their faces and expressions recognizable and the poses unchanged. Do it in a chibi cute anime style.",
             ),
             StylePrompt(
-                style_name="26_japan",
-                prompt="Modify only the clothing of the people in the image. Change their current outfits into traditional Japanese kimonos or yukatas. Crucially, do not alter, remove, or replace any people. Keep all faces, identical facial expressions, body poses, and the background exactly as they are in the original image.",
+                style_name="lego",
+                prompt="Redraw this portrait in the style of LEGO minifigures, keeping the subjects' facial features and poses recognizable. Use bright, blocky colors and maintain the iconic LEGO aesthetic.",
+            ),
+            StylePrompt(
+                style_name="8-bit",
+                prompt="Redraw all people as a JRPG 8-bit party top-down view. Keep them recognizable but draw them in a pixalated 8-bit style. Don't add names to the characters.",
+            ),
+            StylePrompt(
+                style_name="impressionist",
+                prompt="Redraw this portrait in the style of Impressionist painters like Claude Monet, Van Gogh or Pierre-Auguste Renoir, with visible brushstrokes, soft lighting, and a focus on capturing the overall atmosphere rather than fine details.",
+            ),
+            StylePrompt(
+                style_name="custom",
+                prompt="This prompt is read from a the 'prompt.txt' file in the {CONFIG_PATH}/photobooth-data/prompts/ folder. Do not modify!",
             ),
         ],
         description="Prompt templates for different AI filter styles. These guide the AI generation process.",

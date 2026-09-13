@@ -4,6 +4,7 @@ import io
 import logging
 import textwrap
 from pathlib import Path
+from typing import cast
 
 import requests
 from PIL import Image, ImageDraw, ImageFont
@@ -125,7 +126,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
                 logo_y = (height - logo_h) // 2
                 # Make logo semi-transparent
                 logo_r, logo_g, logo_b, logo_a = logo.split()
-                logo_a = logo_a.point(lambda p: p // 3)  # Reduce alpha to 1/3
+                logo_a = logo_a.point(lambda p: cast(int, p) // 3)  # Reduce alpha to 1/3
                 logo = Image.merge("RGBA", (logo_r, logo_g, logo_b, logo_a))
                 logo_overlay.paste(logo, (logo_x, logo_y))
                 image = Image.alpha_composite(image.convert("RGBA"), logo_overlay).convert("RGB")
