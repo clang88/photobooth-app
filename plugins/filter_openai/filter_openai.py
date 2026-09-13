@@ -134,7 +134,7 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         logger.debug(f"Resized image from {image.size} to {resized_image.size}")
         return resized_image
 
-    def _image_to_bytes(self, image: Image.Image, format: str = "png", model: str = None) -> bytes:
+    def _image_to_bytes(self, image: Image.Image, format: str = "png", model: str | None = None) -> bytes:
         # Resize if needed
         image = self._resize_image_if_needed(image)
 
@@ -264,6 +264,8 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
                 model = style.model if style.model else self._config.connection.default_model
                 break
 
+        assert model is not None, "model must be set at this point"
+
         if style_prompt is None:
             raise ValueError(f"Filter '{filter_type}' not found in style_prompts")
 
@@ -290,7 +292,9 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
 
         for config_param, api_param in param_mapping.items():
             if hasattr(self._config.image_generation, config_param):
-                requested_params[api_param] = getattr(self._config.image_generation, config_param)
+                value = getattr(self._config.image_generation, config_param)
+                if value is not None:
+                    requested_params[api_param] = value
 
         # Add hardcoded defaults for common parameters
         if "n" not in requested_params:
@@ -307,7 +311,9 @@ class FilterOpenai(BaseFilter[FilterOpenAiConfig]):
         headers = {"Authorization": f"Bearer {self._config.connection.openai_api_key}"}
 
         # Convert parameters to files format for multipart request - niquests requires string values
-        files = {key: (None, str(value)) for key, value in filtered_params.items()}
+        files: dict[str, tuple[str | None, bytes | str, str] | tuple[str | None, str]] = {
+            key: (None, str(value)) for key, value in filtered_params.items()
+        }
 
         # Add the image file
         files["image"] = ("image", image_bytes, "image/png")

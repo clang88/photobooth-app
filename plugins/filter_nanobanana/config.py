@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, Field
 from pydantic_settings import SettingsConfigDict
@@ -10,7 +10,9 @@ from .model_catalog import COMMON_ASPECT_RATIOS, DEFAULT_GEMINI_MODEL, GEMINI_MO
 from .models import StylePrompt
 
 
-MODELS_WITH_IMAGE_SIZE = ", ".join(model for model in GEMINI_MODEL_VALUES if MODEL_IMAGE_SIZES[model])
+MODELS_WITH_IMAGE_SIZE = ", ".join(
+    cast(str, model) for model in GEMINI_MODEL_VALUES if MODEL_IMAGE_SIZES[model]
+)
 SUPPORTED_ASPECT_RATIOS_DESCRIPTION = ", ".join(COMMON_ASPECT_RATIOS)
 
 
