@@ -9,7 +9,7 @@ OpenAIModelLiteral = Literal[
     "gpt-image-2.5-flare",
 ]
 
-OPENAI_MODEL_VALUES: tuple[str, ...] = get_args(OpenAIModelLiteral)
+OPENAI_MODEL_VALUES: tuple[OpenAIModelLiteral, ...] = get_args(OpenAIModelLiteral)
 
 DEFAULT_OPENAI_MODEL: OpenAIModelLiteral = "gpt-image-2.5-flare"
 
@@ -39,7 +39,7 @@ GPT_IMAGE_BASE_PARAMS: set[str] = {
     "moderation",
 }
 
-OPENAI_MODEL_CONFIGS: dict[OpenAIModelLiteral, OpenAIModelConfig] = {
+OPENAI_MODEL_CONFIGS: dict[str, OpenAIModelConfig] = {
     "gpt-image-1": {
         "supported_params": GPT_IMAGE_BASE_PARAMS | {"input_fidelity"},
         "defaults": {"size": "auto", "quality": "auto", "output_format": "jpeg", "input_fidelity": "low"},

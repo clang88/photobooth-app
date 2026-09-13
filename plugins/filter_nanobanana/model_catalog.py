@@ -1,6 +1,5 @@
 from typing import Literal, get_args
 
-
 GeminiModelLiteral = Literal[
     "gemini-2.5-flash-image",
     "gemini-3-pro-image",
