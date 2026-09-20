@@ -86,7 +86,10 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
             logger.debug(f"Using cached result for filter '{filter_type}'")
             return self._cache[cache_key]
 
-        logger.info(f"Applying AI filter '{filter_type}'")
+        if preview:
+            logger.debug(f"Creating preview for AI filter '{filter_type}'")
+        else:
+            logger.info(f"Applying AI filter '{filter_type}'")
 
         try:
             # Apply the AI transformation
