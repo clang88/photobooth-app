@@ -142,7 +142,9 @@ Each plugin defines a list of pre-built AI-style prompts. These are the "filters
 }
 ```
 
-Each plugin also defines a special `"custom"` style name. When this filter is selected, the prompt is read from `{CONFIG_PATH}/prompts/prompt.txt`, letting you edit it externally without touching the config file.
+Each plugin also defines a special `"custom"` and `"random"` style name. When `"custom"` filter is selected, the prompt is read from `{CONFIG_PATH}/prompts/prompt.txt`, letting you edit it externally without touching the config file.
+
+When `"random"` is selected, the filter will be randomly chosen from the enabled custom styles, always excluding `"custom"` and `"random"`.
 
 ---
 
