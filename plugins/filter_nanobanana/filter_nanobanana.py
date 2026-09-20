@@ -2,6 +2,7 @@ import base64
 import hashlib
 import io
 import logging
+import random
 import textwrap
 from pathlib import Path
 from typing import cast
@@ -75,7 +76,10 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
     def do_filter(self, image: Image.Image, filter_type: str, preview: bool) -> Image.Image:
         """Apply AI filter to the image."""
         # Generate cache key
-        cache_key = self._generate_cache_key(image, filter_type, preview)
+        if filter_type not in ("random", "custom"):
+            cache_key = self._generate_cache_key(image, filter_type, preview)
+        else:
+            cache_key = None
 
         # Check cache first
         if self._config.plugin_behavior.cache_results and cache_key in self._cache:
@@ -88,7 +92,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
             # Apply the AI transformation
             result_image = self._apply_gemini_filter(image, filter_type, preview)
             # Cache the result
-            if self._config.plugin_behavior.cache_results:
+            if self._config.plugin_behavior.cache_results and cache_key is not None:
                 self._cache[cache_key] = result_image
 
             return result_image
@@ -283,6 +287,13 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         if preview:
             return self._generate_preview_image(filter_type)
 
+        # Set a random enabled style_prompt if the filter type is "random"
+        if filter_type == "random":
+            enabled_styles = [style.style_name for style in self._config.style_prompts if style.style_name not in ("custom", "random")]
+            if not enabled_styles:
+                raise ValueError("No enabled styles available for random selection")
+            filter_type = random.choice(enabled_styles)
+            logger.info(f"Randomly selected filter type: {filter_type}")
         # Get style prompt and model for this filter type
         style_prompt = None
         model: GeminiModelLiteral | None = None

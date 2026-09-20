@@ -164,6 +164,10 @@ class FilterNanobananaConfig(BaseConfig):
                 style_name="custom",
                 prompt="This prompt is read from a the 'prompt.txt' file in the {CONFIG_PATH}/photobooth-data/prompts/ folder. Do not modify!",
             ),
+            StylePrompt(
+                style_name="random",
+                prompt="This prompt selects one of the enabled prompts randomly (excluding custom and random). Do not modify!",
+            ),
         ],
         description="Prompt templates for different AI filter styles. These guide the AI generation process.",
     )
