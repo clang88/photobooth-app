@@ -1,26 +1,38 @@
 """
 Helper script to detect transparent frame regions in an image.
-Scans for transparent (alpha == 0) pixels and groups them into bounding boxes.
+Scans for transparent (alpha == 0) pixels, bridges small gaps via morphological
+dilation, then groups them into bounding boxes.
 
 Usage:
     uv run python helpers/detect_transparent_frames.py kaleidoscope-template.png
+    uv run python helpers/detect_transparent_frames.py image.png --gap 30
 """
 
 import sys
-from collections import deque
 from pathlib import Path
 
+import cv2
 import numpy as np
 from PIL import Image
 
 
-def detect_transparent_frames(image_path: str, min_area: int = 5000) -> tuple[list[dict], int, int]:
+def detect_transparent_frames(
+    image_path: str,
+    min_area: int = 5000,
+    gap: int = 30,
+) -> tuple[list[dict], int, int]:
     """
     Detect rectangular regions of transparent pixels in the image.
+
+    Uses morphological dilation to bridge small gaps caused by non-transparent
+    elements (borders, decorative pixels) that intrude into transparent areas.
 
     Args:
         image_path: Path to the PNG image.
         min_area: Minimum pixel area to consider as a valid frame (filters noise).
+        gap: Maximum gap size in pixels to bridge via dilation. Larger values
+             merge regions that are farther apart. Default 30px works well for
+             most template images with decorative borders.
 
     Returns:
         Tuple of (frames, canvas_width, canvas_height).
@@ -37,109 +49,166 @@ def detect_transparent_frames(image_path: str, min_area: int = 5000) -> tuple[li
     # Find transparent pixels (alpha < 50 to allow for anti-aliasing)
     transparent = alpha < 50
 
-    # Find bounding boxes of connected transparent regions
-    frames = _find_bounding_boxes(transparent, min_area=min_area)
+    # Dilate to bridge small gaps, then erode to restore original shape
+    # The dilation kernel is a square of size (2*gap+1) to bridge gaps up to `gap` pixels
+    if gap > 0:
+        kernel_size = 2 * gap + 1
+        mask = cv2.dilate(transparent.astype(np.uint8), np.ones((kernel_size, kernel_size), dtype=np.uint8))
+    else:
+        mask = transparent.astype(np.uint8)
 
-    # Sort: top-to-bottom, then left-to-right within each row
-    frames = _sort_grid(frames)
+    # Find bounding boxes of connected transparent regions using cv2 connectedComponents
+    frames = _find_bounding_boxes(mask, min_area=min_area)
 
-    # Assign descriptions
-    for i, frame in enumerate(frames):
-        row = i // 2  # assume 2 columns
-        col = i % 2
-        row_label = "top" if row == 0 else "bottom"
-        col_label = "left" if col == 0 else "right"
-        frame["description"] = f"{row_label}-{col_label}"
+    # Sort and assign descriptive names based on spatial position
+    frames = _sort_and_label(frames, canvas_w, canvas_h)
 
     return frames, canvas_w, canvas_h
 
 
 def _find_bounding_boxes(mask: np.ndarray, min_area: int) -> list[dict]:
     """
-    Find bounding boxes of connected transparent regions using BFS (4-connectivity).
-    This properly separates distinct regions even if they're in the same row/column.
+    Find bounding boxes of connected transparent regions using cv2 connectedComponents.
     """
-    rows, cols = mask.shape
-    visited = np.zeros_like(mask, dtype=bool)
+    # Label connected components (8-connectivity)
+    num_labels, labeled = cv2.connectedComponents(mask)
+
     regions = []
+    for component_id in range(1, num_labels):
+        component_mask = labeled == component_id
 
-    for y in range(rows):
-        for x in range(cols):
-            if mask[y, x] and not visited[y, x]:
-                # BFS to find the entire connected component
-                component_pixels = []
-                queue = deque([(y, x)])
-                visited[y, x] = True
+        # Get coordinates of all pixels in this component
+        ys, xs = np.where(component_mask)
 
-                while queue:
-                    cy, cx = queue.popleft()
-                    component_pixels.append((cy, cx))
+        if len(xs) == 0:
+            continue
 
-                    # 4-connectivity: up, down, left, right
-                    for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                        ny, nx = cy + dy, cx + dx
-                        if 0 <= ny < rows and 0 <= nx < cols:
-                            if mask[ny, nx] and not visited[ny, nx]:
-                                visited[ny, nx] = True
-                                queue.append((ny, nx))
+        y_start, y_end = int(ys.min()), int(ys.max())
+        x_start, x_end = int(xs.min()), int(xs.max())
 
-                # Compute bounding box for this component
-                if component_pixels:
-                    ys = [p[0] for p in component_pixels]
-                    xs = [p[1] for p in component_pixels]
-
-                    y_start, y_end = min(ys), max(ys)
-                    x_start, x_end = min(xs), max(xs)
-
-                    area = (y_end - y_start + 1) * (x_end - x_start + 1)
-                    if area >= min_area:
-                        regions.append(
-                            {
-                                "pos_x": int(x_start),
-                                "pos_y": int(y_start),
-                                "width": int(x_end - x_start + 1),
-                                "height": int(y_end - y_start + 1),
-                                "area": int(area),
-                            }
-                        )
+        area = (y_end - y_start + 1) * (x_end - x_start + 1)
+        if area >= min_area:
+            regions.append(
+                {
+                    "pos_x": x_start,
+                    "pos_y": y_start,
+                    "width": x_end - x_start + 1,
+                    "height": y_end - y_start + 1,
+                    "area": int(area),
+                }
+            )
 
     return regions
 
 
-def _sort_grid(frames: list[dict]) -> list[dict]:
+def _sort_and_label(frames: list[dict], canvas_w: int, canvas_h: int) -> list[dict]:
     """
-    Sort frames into a grid layout: top-to-bottom, then left-to-right.
-    Groups frames that share a similar y-position into rows.
+    Sort frames and assign descriptive names based on spatial position.
+
+    Strategy:
+    1. Group frames into vertical zones (left half vs right half) by x-center.
+    2. Within each zone, group into horizontal zones (top/middle/bottom).
+    3. Special handling: if a frame spans >70% of canvas height, label it as
+       a "full-height" frame on that side (e.g., "left", "right").
+
+    Naming scheme:
+    - Full-height frames: "left", "right" (no row prefix)
+    - Small frames: "top-left", "top-right", "middle-left", "middle-right",
+      "bottom-left", "bottom-right"
     """
     if not frames:
         return frames
 
-    # Sort by y position first
+    # Sort by y position
     frames.sort(key=lambda f: f["pos_y"])
 
-    # Group into rows based on y-overlap
-    rows = []
-    current_row = [frames[0]]
-    current_y_center = frames[0]["pos_y"] + frames[0]["height"] / 2
+    # Separate full-height frames from small ones
+    # If a frame spans >50% of canvas height, treat it as a full-height frame
+    full_height_threshold = canvas_h * 0.5
+    full_height_frames: list[dict] = []
+    small_frames: list[dict] = []
 
-    for frame in frames[1:]:
-        y_center = frame["pos_y"] + frame["height"] / 2
-        if abs(y_center - current_y_center) < frame["height"] / 2:
-            # Same row
-            current_row.append(frame)
-            current_y_center = (current_y_center * len(current_row) + y_center) / (len(current_row) + 1)
+    for frame in frames:
+        if frame["height"] >= full_height_threshold:
+            full_height_frames.append(frame)
         else:
-            # New row — sort left-to-right within the row
-            current_row.sort(key=lambda f: f["pos_x"])
-            rows.extend(current_row)
-            current_row = [frame]
-            current_y_center = y_center
+            small_frames.append(frame)
 
-    # Don't forget the last row
-    current_row.sort(key=lambda f: f["pos_x"])
-    rows.extend(current_row)
+    # Assign names to full-height frames (just left/right based on x position)
+    full_height_frames.sort(key=lambda f: f["pos_x"])
+    for frame in full_height_frames:
+        # Use left edge position to determine side
+        if frame["pos_x"] < canvas_w * 0.4:
+            frame["description"] = "left"
+        elif frame["pos_x"] > canvas_w * 0.6:
+            frame["description"] = "right"
+        else:
+            frame["description"] = "center"
 
-    return rows
+    # Group small frames into vertical zones (left/right)
+    small_frames.sort(key=lambda f: f["pos_x"])
+    left_frames: list[dict] = []
+    right_frames: list[dict] = []
+
+    for frame in small_frames:
+        x_center = frame["pos_x"] + frame["width"] / 2
+        if x_center < canvas_w * 0.5:
+            left_frames.append(frame)
+        else:
+            right_frames.append(frame)
+
+    # Within each zone, group into rows (top/middle/bottom)
+    def group_into_rows(frames_in_zone: list[dict]) -> list[list[dict]]:
+        if not frames_in_zone:
+            return []
+        frames_in_zone.sort(key=lambda f: f["pos_y"])
+        rows_in_zone: list[list[dict]] = []
+        current_row = [frames_in_zone[0]]
+        current_y_center = frames_in_zone[0]["pos_y"] + frames_in_zone[0]["height"] / 2
+        avg_h = np.mean([f["height"] for f in frames_in_zone])
+
+        for frame in frames_in_zone[1:]:
+            y_center = frame["pos_y"] + frame["height"] / 2
+            if abs(y_center - current_y_center) < avg_h / 2:
+                current_row.append(frame)
+                current_y_center = (current_y_center * len(current_row) + y_center) / (len(current_row) + 1)
+            else:
+                rows_in_zone.append(current_row)
+                current_row = [frame]
+                current_y_center = y_center
+        rows_in_zone.append(current_row)
+        return rows_in_zone
+
+    left_rows = group_into_rows(left_frames)
+    right_rows = group_into_rows(right_frames)
+
+    # Assign names
+    for row_frames in left_rows:
+        row_label = _get_row_label(row_frames, canvas_h)
+        for frame in row_frames:
+            frame["description"] = f"{row_label}-left"
+
+    for row_frames in right_rows:
+        row_label = _get_row_label(row_frames, canvas_h)
+        for frame in row_frames:
+            frame["description"] = f"{row_label}-right"
+
+    # Sort all frames by y position for consistent output
+    frames.sort(key=lambda f: f["pos_y"])
+    return frames
+
+
+def _get_row_label(row_frames: list[dict], canvas_h: int) -> str:
+    """Get the row label (top/middle/bottom) based on the y-center of the row."""
+    if not row_frames:
+        return "top"
+    avg_y_center = np.mean([f["pos_y"] + f["height"] / 2 for f in row_frames])
+    if avg_y_center < canvas_h * 0.3:
+        return "top"
+    elif avg_y_center > canvas_h * 0.7:
+        return "bottom"
+    else:
+        return "middle"
 
 
 def to_collage_config(frames: list[dict], canvas_width: int = 1024, canvas_height: int = 1536) -> dict:
