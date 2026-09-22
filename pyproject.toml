@@ -153,6 +153,7 @@ dev = [
   "poethepoet",
   "wigglecam[node]",
   "pyturbojpeg~=1.8.0",
+  "ipython>=9.17.1" # For quicker prompt testing
 ]
 
 
