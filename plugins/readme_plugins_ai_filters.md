@@ -142,7 +142,7 @@ Each plugin defines a list of pre-built AI-style prompts. These are the "filters
 }
 ```
 
-Each plugin also defines a special `"custom"` and `"random"` style name. When `"custom"` filter is selected, the prompt is read from `{plugin_root}/custom_prompt/prompt.txt`, letting you edit it externally without touching the config file. Use the prompt editor at `http://localhost:8001` to manage prompts per plugin.
+Each plugin also defines a special `"custom"` and `"random"` style name. When `"custom"` filter is selected, the prompt is read from `{plugin_root}/custom_prompt/prompt.txt`, letting you edit it externally without touching the config file. Use the prompt editor at `http://localhost:8001` to manage prompts per plugin (run as separate web service from `helpers/custom_prompt_editor/prompt_editor.py`).
 
 When `"random"` is selected, the filter will be randomly chosen from the enabled custom styles, always excluding `"custom"` and `"random"`.
 
