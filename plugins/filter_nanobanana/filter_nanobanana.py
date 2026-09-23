@@ -10,7 +10,6 @@ from typing import cast
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
-from photobooth import CONFIG_PATH
 from photobooth.plugins import hookimpl
 from photobooth.plugins.base_plugin import BaseFilter
 
@@ -304,10 +303,11 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
             if style.style_name == filter_type:
                 if filter_type == "custom":
                     try:
-                        with open(f"{CONFIG_PATH}/prompts/prompt.txt") as f:
+                        custom_prompt_path = Path(__file__).parent / "custom_prompt" / "prompt.txt"
+                        with open(custom_prompt_path) as f:
                             style_prompt = f.read().strip()
                     except Exception as e:
-                        logger.error(f"Error reading custom prompt: {e}")
+                        logger.error(f"Error reading custom prompt from {Path(__file__).parent / 'custom_prompt' / 'prompt.txt'}: {e}")
                         style_prompt = None
                 else:
                     style_prompt = style.prompt

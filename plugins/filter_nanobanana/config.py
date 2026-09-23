@@ -162,7 +162,7 @@ class FilterNanobananaConfig(BaseConfig):
             ),
             StylePrompt(
                 style_name="custom",
-                prompt="This prompt is read from a the 'prompt.txt' file in the {CONFIG_PATH}/photobooth-data/prompts/ folder. Do not modify!",
+                prompt="This prompt is read from the 'custom_prompt/prompt.txt' file in the filter_nanobanana plugin folder. Do not modify!",
             ),
             StylePrompt(
                 style_name="random",
