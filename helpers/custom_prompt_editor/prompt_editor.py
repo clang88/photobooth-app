@@ -29,12 +29,12 @@ DEFAULT_PLUGIN = "filter_nanobanana"
 
 def get_prompt_file(plugin_name: str) -> Path:
     """Get the prompt.txt path for a given plugin."""
-    return PLUGIN_PROMPT_DIRS.get(plugin_name, PLUGIN_PROMPT_DIRS[DEFAULT_PLUGIN])
+    return PLUGIN_PROMPT_DIRS.get(plugin_name, PLUGIN_PROMPT_DIRS[DEFAULT_PLUGIN]) / "prompt.txt"
 
 
 def get_history_file(plugin_name: str) -> Path:
     """Get the history file path for a given plugin."""
-    return PROJECT_ROOT / "photobooth-data" / "config" / "prompts" / f"{plugin_name}_prompts_history.txt"
+    return PLUGIN_PROMPT_DIRS.get(plugin_name, PLUGIN_PROMPT_DIRS[DEFAULT_PLUGIN]) / "prompts_history.txt"
 
 
 # Ensure directories exist
@@ -77,16 +77,21 @@ class PromptEditorHandler(http.server.SimpleHTTPRequestHandler):
 
             history = []
             if history_file.exists():
-                lines = history_file.read_text().strip().split("\n")
-                for line in lines:
-                    if line.strip():
-                        parts = line.split("|||", 1)
-                        if len(parts) == 2:
-                            history.append({"timestamp": parts[0].strip(), "text": parts[1].strip()})
-                        else:
-                            # Continuation of previous prompt
-                            if history:
-                                history[-1]["text"] += "\n" + line.strip()
+                try:
+                    history = json.loads(history_file.read_text())
+                except json.JSONDecodeError:
+                    # Fallback: migrate old ||| format to JSON
+                    lines = history_file.read_text().strip().split("\n")
+                    for line in lines:
+                        if line.strip():
+                            parts = line.split("|||", 1)
+                            if len(parts) == 2:
+                                history.append({"timestamp": parts[0].strip(), "text": parts[1].strip()})
+                            else:
+                                if history:
+                                    history[-1]["text"] += "\n" + line.strip()
+                    # Rewrite as JSON
+                    history_file.write_text(json.dumps(history, indent=2))
 
             # Reverse to show newest first
             history.reverse()
@@ -126,13 +131,23 @@ class PromptEditorHandler(http.server.SimpleHTTPRequestHandler):
                 prompt_file = get_prompt_file(plugin_name)
                 prompt_file.write_text(prompt)
 
-                # Append to history with timestamp
+                # Update history as JSON - deduplicate by removing existing identical prompt first
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                history_entry = f"{timestamp} ||| {prompt}\n"
-
                 history_file = get_history_file(plugin_name)
-                with open(history_file, "a") as f:
-                    f.write(history_entry)
+
+                history = []
+                if history_file.exists():
+                    try:
+                        history = json.loads(history_file.read_text())
+                    except json.JSONDecodeError:
+                        pass
+
+                # Remove any existing entries with the same text (deduplication)
+                history = [h for h in history if h.get("text") != prompt]
+
+                # Add new entry with current timestamp
+                history.append({"timestamp": timestamp, "text": prompt})
+                history_file.write_text(json.dumps(history, indent=2))
 
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
@@ -140,6 +155,63 @@ class PromptEditorHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({"success": True}).encode())
 
                 print(f"[{timestamp}] Prompt updated for {plugin_name}: {prompt[:50]}...")
+
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+                print(f"Error: {e}")
+
+        elif parsed_path.path == "/api/delete":
+            # Delete a prompt from history
+            content_length = int(self.headers["Content-Length"])
+            post_data = self.rfile.read(content_length)
+
+            try:
+                data = json.loads(post_data.decode())
+                idx = int(data.get("index", -1))
+                plugin_name = data.get("plugin", DEFAULT_PLUGIN)
+
+                if idx < 0:
+                    self.send_response(400)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": "Invalid index"}).encode())
+                    return
+
+                # Ensure plugin is valid
+                if plugin_name not in PLUGIN_PROMPT_DIRS:
+                    plugin_name = DEFAULT_PLUGIN
+
+                history_file = get_history_file(plugin_name)
+                if not history_file.exists():
+                    self.send_response(404)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": "No history file"}).encode())
+                    return
+
+                # Read, reverse (newest first matching UI order), modify, write back
+                history = json.loads(history_file.read_text())
+                if idx >= len(history):
+                    self.send_response(400)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": "Index out of range"}).encode())
+                    return
+
+                # Reverse to match frontend display order before popping
+                history.reverse()
+                history.pop(idx)
+                # Reverse back to chronological order (oldest first)
+                history.reverse()
+                history_file.write_text(json.dumps(history, indent=2))
+
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode())
 
             except Exception as e:
                 self.send_response(500)

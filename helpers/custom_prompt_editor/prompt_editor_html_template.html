@@ -206,10 +206,37 @@
             transform: translateX(5px);
         }
         
+        .prompt-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
         .prompt-item .timestamp {
             color: #718096;
             font-size: 0.85em;
-            margin-bottom: 8px;
+        }
+        
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #e53e3e;
+            font-size: 1.2em;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            opacity: 0;
+        }
+        
+        .prompt-item:hover .delete-btn {
+            opacity: 1;
+        }
+        
+        .delete-btn:hover {
+            background: #fed7d7;
+            color: #c53030;
         }
         
         .prompt-item .text {
@@ -313,12 +340,16 @@
     
     <script>
         let allPrompts = [];
+        let currentPlugin = 'filter_nanobanana';
         
         // Load current prompt and history on page load
         async function loadPrompts() {
             try {
-                const response = await fetch('/api/prompts');
+                const response = await fetch(`/api/prompts?plugin=${currentPlugin}`);
                 const data = await response.json();
+                
+                // Update plugin selector to match
+                document.getElementById('pluginSelect').value = data.plugin;
                 
                 // Set current prompt
                 document.getElementById('promptInput').value = data.current || '';
@@ -331,6 +362,13 @@
                 console.error('Error loading prompts:', error);
                 showStatus('Failed to load prompts', 'error');
             }
+        }
+        
+        // Handle plugin change
+        function onPluginChange() {
+            const select = document.getElementById('pluginSelect');
+            currentPlugin = select.value;
+            loadPrompts();
         }
         
         // Update markdown preview
@@ -358,7 +396,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ prompt: prompt })
+                    body: JSON.stringify({ prompt: prompt, plugin: currentPlugin })
                 });
                 
                 const result = await response.json();
@@ -367,7 +405,7 @@
                     showStatus('Prompt updated successfully!', 'success');
                     loadPrompts(); // Reload to get updated history
                 } else {
-                    showStatus('Failed to update prompt', 'error');
+                    showStatus(result.error || 'Failed to update prompt', 'error');
                 }
             } catch (error) {
                 console.error('Error updating prompt:', error);
@@ -398,9 +436,12 @@
                 return;
             }
             
-            listEl.innerHTML = prompts.map(item => `
-                <div class="prompt-item" onclick="selectPrompt('${escapeHtml(item.text)}')">
-                    <div class="timestamp">${item.timestamp}</div>
+            listEl.innerHTML = prompts.map((item, idx) => `
+                <div class="prompt-item" data-idx="${idx}" onclick="selectPrompt(${idx})">
+                    <div class="prompt-item-header">
+                        <div class="timestamp">${item.timestamp}</div>
+                        <button class="delete-btn" onclick="event.stopPropagation(); deletePrompt(${idx})" title="Delete">✕</button>
+                    </div>
                     <div class="text">${escapeHtml(item.text)}</div>
                 </div>
             `).join('');
@@ -423,10 +464,40 @@
         }
         
         // Select a prompt from history
-        function selectPrompt(text) {
-            document.getElementById('promptInput').value = text;
-            updatePreview();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+        function selectPrompt(idx) {
+            const item = allPrompts[idx];
+            if (item) {
+                document.getElementById('promptInput').value = item.text;
+                updatePreview();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+        
+        // Delete a prompt from history
+        async function deletePrompt(idx) {
+            if (!confirm('Delete this prompt from history?')) return;
+            
+            try {
+                const response = await fetch('/api/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ index: idx, plugin: currentPlugin })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('Prompt deleted', 'success');
+                    loadPrompts();
+                } else {
+                    showStatus(result.error || 'Failed to delete', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting prompt:', error);
+                showStatus('Failed to delete prompt', 'error');
+            }
         }
         
         // Escape HTML to prevent XSS
