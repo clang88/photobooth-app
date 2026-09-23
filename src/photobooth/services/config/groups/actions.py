@@ -294,9 +294,9 @@ class BaseConfigurationSet(BaseModel, Generic[t_JOBCONTROL, t_PROCESSING]):
         description="Name to identify, only used for display in admin center.",
     )
 
+    trigger: Trigger
     jobcontrol: t_JOBCONTROL
     processing: t_PROCESSING
-    trigger: Trigger
 
 
 class SingleImageConfigurationSet(BaseConfigurationSet[SingleImageJobControl, SingleImageProcessing]):

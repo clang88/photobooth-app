@@ -1,7 +1,7 @@
 # General
 * [x] Cleanup Repo branches locally and remotely
-* [ ] Report or fix cache issue with downlaods (old filter shown by browser, instead of newly applied filter)
-* [ ] Create PR for upstream for longRunningFilter extension and filter processing ux improvement
+* [x] Report or fix cache issue with downlaods (old filter shown by browser, instead of newly applied filter)
+* [x] Create PR for upstream for longRunningFilter extension and filter processing ux improvement
 
 # AI Filter Plugins
 * [x] Add _random StylePrompt which can be used in actions to let the plugin randomly choose any of the enabled user prompts
