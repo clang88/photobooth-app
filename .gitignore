@@ -10,7 +10,7 @@
 /tmp
 /recycle
 #/plugins # Include plugins because we are developing them
-
+custom_prompt
 
 # python files
 __pycache__

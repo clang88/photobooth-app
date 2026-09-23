@@ -142,7 +142,7 @@ Each plugin defines a list of pre-built AI-style prompts. These are the "filters
 }
 ```
 
-Each plugin also defines a special `"custom"` and `"random"` style name. When `"custom"` filter is selected, the prompt is read from `{CONFIG_PATH}/prompts/prompt.txt`, letting you edit it externally without touching the config file.
+Each plugin also defines a special `"custom"` and `"random"` style name. When `"custom"` filter is selected, the prompt is read from `{plugin_root}/custom_prompt/prompt.txt`, letting you edit it externally without touching the config file. Use the prompt editor at `http://localhost:8001` to manage prompts per plugin.
 
 When `"random"` is selected, the filter will be randomly chosen from the enabled custom styles, always excluding `"custom"` and `"random"`.
 
@@ -185,7 +185,7 @@ The error text overlay:
 | **API approach** | Content generation (text + inline image) | Image edit API with multipart uploads |
 | **Retry on timeout** | ✅ | ✅ |
 | **Image resizing** | ✅ (LANCZOS, config-controlled max size) | ✅ (same mechanism) |
-| **Custom prompt file** | ✅ (`prompts/prompt.txt`) | ✅ (same path) |
+| **Custom prompt file** | ✅ (`custom_prompt/prompt.txt`) | ✅ (`custom_prompt/prompt.txt`) |
 | **Error text overlay** | ✅ | ✅ |
 | **Model-specific param capping** | Uses `model_catalog.py` helpers | Uses inline `MODEL_CONFIG` dict |
 | **Input format config** | ✅ (jpeg/png/webp) | Hardcoded to jpeg |
@@ -210,7 +210,7 @@ The error text overlay:
    - Set `plugin_behavior.add_userselectable_filter` to `true` for gallery UI
    - Or set `image_filter` in the action's `SingleImageProcessing` config for automatic application
 
-5. **Optional: enable custom prompts** — Add a `StylePrompt` entry with `"custom"` as the `style_name`, then place your prompt in `{CONFIG_PATH}/prompts/prompt.txt`.
+5. **Optional: enable custom prompts** — Add a `StylePrompt` entry with `"custom"` as the `style_name`, then place your prompt in `{plugin_root}/custom_prompt/prompt.txt`.
 
 6. **Restart** — Restart the photobooth service so the new plugin config is loaded.
 
@@ -226,4 +226,4 @@ The error text overlay:
 | API returns error 429 | Rate limiting / too many requests | Increase `timeout_seconds`, reduce concurrency, or check model quotas |
 | Slow processing | Large input images hitting the API / slow model | Switch model (`gemini-3.1-flash-image` or `gemini-3.1-flash-lite-image` or `gpt-image-2.5-flare`), decrease `max_input_image_size` or check network latency to API endpoint |
 | Black/dark fallback image (no text) | PIL or ImageDraw is not available / error overlay failed to load | The filter should show an error text overlay. If it fails silently, check logs in `log/`. |
-| Custom prompt not loaded from file | `prompts/prompt.txt` doesn't exist or config path is wrong | Ensure `{CONFIG_PATH}/prompts/prompt.txt` exists and is readable |
+| Custom prompt not loaded from file | `custom_prompt/prompt.txt` doesn't exist or plugin path is wrong | Ensure `{plugin_root}/custom_prompt/prompt.txt` exists and is readable |

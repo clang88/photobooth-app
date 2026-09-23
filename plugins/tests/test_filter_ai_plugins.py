@@ -730,12 +730,13 @@ class TestIntegration:
         assert selected in enabled
 
     def test_custom_filter_reads_from_file(self, sample_image, both_plugins, tmp_path):
-        """Test that custom filter reads prompt from file."""
+        """Test that custom filter reads prompt from plugin's custom_prompt/prompt.txt."""
         _name, plugin = both_plugins
 
-        prompts_dir = tmp_path / "prompts"
-        prompts_dir.mkdir()
-        prompt_file = prompts_dir / "prompt.txt"
+        # Use the plugin's custom_prompt directory structure
+        custom_prompt_dir = tmp_path / "custom_prompt"
+        custom_prompt_dir.mkdir()
+        prompt_file = custom_prompt_dir / "prompt.txt"
         prompt_file.write_text("Custom test prompt")
 
         try:

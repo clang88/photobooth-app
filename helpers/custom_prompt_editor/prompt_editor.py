@@ -7,14 +7,15 @@ Default port: 8080
 
 import http.server
 import json
-import os
 import socketserver
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 # Get the project root directory (parent of opt/)
-PROJECT_ROOT = Path(__file__).parent.parent
+# __file__ is helpers/custom_prompt_editor/prompt_editor.py
+# parent.parent.parent = project root (photobooth-app/)
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 # Plugin prompt directories - each plugin has its own custom_prompt folder
 PLUGIN_PROMPT_DIRS = {
@@ -50,30 +51,30 @@ class PromptEditorHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests."""
         parsed_path = urlparse(self.path)
-        
+
         if parsed_path.path == "/" or parsed_path.path == "/index.html":
             # Serve the main HTML page
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
             self.wfile.write(HTML_TEMPLATE.encode())
-            
+
         elif parsed_path.path == "/api/prompts":
             # Return current prompt and history for selected plugin
             query_params = parse_qs(parsed_path.query)
             plugin_name = query_params.get("plugin", [DEFAULT_PLUGIN])[0]
-            
+
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-            
+
             prompt_file = get_prompt_file(plugin_name)
             history_file = get_history_file(plugin_name)
-            
+
             current_prompt = ""
             if prompt_file.exists():
                 current_prompt = prompt_file.read_text()
-            
+
             history = []
             if history_file.exists():
                 lines = history_file.read_text().strip().split("\n")
@@ -81,25 +82,17 @@ class PromptEditorHandler(http.server.SimpleHTTPRequestHandler):
                     if line.strip():
                         parts = line.split("|||", 1)
                         if len(parts) == 2:
-                            history.append({
-                                "timestamp": parts[0].strip(),
-                                "text": parts[1].strip()
-                            })
+                            history.append({"timestamp": parts[0].strip(), "text": parts[1].strip()})
                         else:
                             # Continuation of previous prompt
                             if history:
                                 history[-1]["text"] += "\n" + line.strip()
-            
+
             # Reverse to show newest first
             history.reverse()
-            
-            response = {
-                "current": current_prompt,
-                "history": history,
-                "plugin": plugin_name,
-                "available_plugins": list(PLUGIN_PROMPT_DIRS.keys())
-            }
-            
+
+            response = {"current": current_prompt, "history": history, "plugin": plugin_name, "available_plugins": list(PLUGIN_PROMPT_DIRS.keys())}
+
             self.wfile.write(json.dumps(response).encode())
         else:
             self.send_error(404)
@@ -107,47 +100,47 @@ class PromptEditorHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         """Handle POST requests."""
         parsed_path = urlparse(self.path)
-        
+
         if parsed_path.path == "/api/update":
             # Read POST data
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length)
-            
+
             try:
                 data = json.loads(post_data.decode())
                 prompt = data.get("prompt", "").strip()
                 plugin_name = data.get("plugin", DEFAULT_PLUGIN)
-                
+
                 if not prompt:
                     self.send_response(400)
                     self.send_header("Content-type", "application/json")
                     self.end_headers()
                     self.wfile.write(json.dumps({"success": False, "error": "Empty prompt"}).encode())
                     return
-                
+
                 # Ensure plugin is valid
                 if plugin_name not in PLUGIN_PROMPT_DIRS:
                     plugin_name = DEFAULT_PLUGIN
-                
+
                 # Save to current prompt file for the selected plugin
                 prompt_file = get_prompt_file(plugin_name)
                 prompt_file.write_text(prompt)
-                
+
                 # Append to history with timestamp
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 history_entry = f"{timestamp} ||| {prompt}\n"
-                
+
                 history_file = get_history_file(plugin_name)
                 with open(history_file, "a") as f:
                     f.write(history_entry)
-                
+
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"success": True}).encode())
-                
+
                 print(f"[{timestamp}] Prompt updated for {plugin_name}: {prompt[:50]}...")
-                
+
             except Exception as e:
                 self.send_response(500)
                 self.send_header("Content-type", "application/json")
@@ -166,8 +159,6 @@ def run_server(port=8001):
     """Start the HTTP server."""
     with socketserver.TCPServer(("", port), PromptEditorHandler) as httpd:
         print(f"🚀 Prompt Editor Server running at http://localhost:{port}")
-        print(f"📝 Prompt file: {PROMPT_FILE}")
-        print(f"📚 History file: {HISTORY_FILE}")
         print("Press Ctrl+C to stop the server")
         try:
             httpd.serve_forever()
@@ -177,7 +168,7 @@ def run_server(port=8001):
 
 if __name__ == "__main__":
     import sys
-    
+
     port = 8001
     if len(sys.argv) > 1:
         try:
@@ -185,5 +176,5 @@ if __name__ == "__main__":
         except ValueError:
             print(f"Invalid port number: {sys.argv[1]}")
             sys.exit(1)
-    
+
     run_server(port)
