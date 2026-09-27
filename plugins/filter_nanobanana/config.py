@@ -142,7 +142,7 @@ class FilterNanobananaConfig(BaseConfig):
             ),
             StylePrompt(
                 style_name="mountain",
-                prompt="Put the people on a mountain top, wearing hiking gear and backpacks. Keep their faces, poses, and expressions unchanged. Draw it in a realistic style. Do not add or remove people!",
+                prompt="Add realistic technical hiking gear and backpacks to the people in the photo. Keep the framing, faces, expressions, and poses completely unchanged, but replace the background with a scenic mountain landscape. Faces need to stay completely unchanged!",
             ),
             StylePrompt(
                 style_name="chibi_musicians",
