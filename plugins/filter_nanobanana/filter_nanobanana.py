@@ -15,6 +15,7 @@ from photobooth.plugins.base_plugin import BaseFilter
 
 from .config import FilterNanobananaConfig
 from .model_catalog import GeminiModelLiteral, get_allowed_aspect_ratios, get_allowed_image_sizes, supports_image_size
+from .models import ALLOWED_REFERENCE_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -280,6 +281,55 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         image = Image.open(io.BytesIO(image_data))
         return image
 
+    def _load_reference_images(self, filter_type: str) -> list[Path]:
+        """Return the existing reference image paths configured for a style.
+
+        Missing or invalid files are skipped (with a warning) so a single bad
+        entry does not break generation.
+        """
+        for style in self._config.style_prompts:
+            if style.style_name == filter_type:
+                paths: list[Path] = []
+                for entry in style.reference_images:
+                    path = Path(entry)
+                    if path.suffix.lower() in ALLOWED_REFERENCE_EXTENSIONS and path.is_file():
+                        paths.append(path)
+                    else:
+                        logger.warning(f"Skipping invalid reference image for style '{filter_type}': {entry}")
+                return paths
+        return []
+
+    def _build_content_parts(self, image: Image.Image, style_prompt: str, reference_paths: list[Path]) -> list[dict]:
+        """Build the Gemini ``parts`` list.
+
+        Without reference images the original two-part layout is used (prompt
+        text, then the input photo). With reference images the recommended
+        interleaved layout is used: a labeled main photo, one labeled reference
+        photo each, and the style prompt as the final task-instructions block.
+        """
+        main_b64 = self._image_to_base64(image)
+        main_mime = f"image/{self._config.image_generation.input_image_format}"
+
+        if not reference_paths:
+            return [
+                {"text": style_prompt},
+                {"inlineData": {"mimeType": main_mime, "data": main_b64}},
+            ]
+
+        parts: list[dict] = [
+            {"text": "Main photo to modify:"},
+            {"inlineData": {"mimeType": main_mime, "data": main_b64}},
+        ]
+        for index, ref_path in enumerate(reference_paths, start=1):
+            ref_image = Image.open(ref_path)
+            ref_b64 = self._image_to_base64(ref_image)
+            # .jpg and .jpeg both map to image/jpeg
+            ref_mime = "image/jpeg" if ref_path.suffix.lower() in (".jpg", ".jpeg") else f"image/{ref_path.suffix.lower().lstrip('.')}"
+            parts.append({"text": f"Reference photo {index}:"})
+            parts.append({"inlineData": {"mimeType": ref_mime, "data": ref_b64}})
+        parts.append({"text": style_prompt})
+        return parts
+
     def _apply_gemini_filter(self, image: Image.Image, filter_type: str, preview: bool) -> Image.Image:
         """Apply filter using Google Gemini API."""
         if not self._config.connection.gemini_api_key:
@@ -320,12 +370,9 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         if model is None:
             raise ValueError(f"No model resolved for filter '{filter_type}'")
 
-        # Convert image to base64
-        image_b64 = self._image_to_base64(image)
-
-        # Determine mime type based on input format
-        input_format = self._config.image_generation.input_image_format
-        mime_type = f"image/{input_format}"
+        # Build the content parts (input photo + optional reference images)
+        reference_paths = self._load_reference_images(filter_type)
+        content_parts = self._build_content_parts(image, style_prompt, reference_paths)
 
         # Prepare API request according to official docs
         headers = {
@@ -363,15 +410,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         payload = {
             "contents": [
                 {
-                    "parts": [
-                        {"text": style_prompt},
-                        {
-                            "inlineData": {
-                                "mimeType": mime_type,
-                                "data": image_b64,
-                            }
-                        },
-                    ]
+                    "parts": content_parts,
                 }
             ],
             "generationConfig": generation_config,
