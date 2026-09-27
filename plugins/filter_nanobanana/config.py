@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -7,7 +8,7 @@ from photobooth import CONFIG_PATH
 from photobooth.services.config.baseconfig import BaseConfig
 
 from .model_catalog import COMMON_ASPECT_RATIOS, DEFAULT_GEMINI_MODEL, GEMINI_MODEL_VALUES, MODEL_IMAGE_SIZES, GeminiModelLiteral
-from .models import StylePrompt
+from .models import ALLOWED_REFERENCE_EXTENSIONS, StylePrompt
 
 MODELS_WITH_IMAGE_SIZE = ", ".join(model for model in GEMINI_MODEL_VALUES if MODEL_IMAGE_SIZES[model])
 SUPPORTED_ASPECT_RATIOS_DESCRIPTION = ", ".join(COMMON_ASPECT_RATIOS)
@@ -147,6 +148,7 @@ class FilterNanobananaConfig(BaseConfig):
             StylePrompt(
                 style_name="chibi_musicians",
                 prompt="Put all the people in the image on a music stage, playing instruments, while keeping their faces and expressions recognizable and the poses unchanged. Do it in a chibi cute anime style.",
+                reference_images=["plugins/filter_nanobanana/reference_images/chibi.jpg"],
             ),
             StylePrompt(
                 style_name="lego",
@@ -171,3 +173,45 @@ class FilterNanobananaConfig(BaseConfig):
         ],
         description="Prompt templates for different AI filter styles. These guide the AI generation process.",
     )
+
+    def _reference_image_options(self) -> list[str]:
+        """Return CWD-relative paths of the reference images available for selection in the UI."""
+        ref_dir = Path(__file__).resolve().parent / "reference_images"
+        if not ref_dir.is_dir():
+            return []
+        try:
+            base = ref_dir.relative_to(Path.cwd())
+        except ValueError:
+            # If the plugin is not under the CWD (unusual), fall back to absolute paths.
+            base = ref_dir
+        options: list[str] = []
+        for file in sorted(ref_dir.iterdir()):
+            if file.is_file() and file.suffix.lower() in ALLOWED_REFERENCE_EXTENSIONS:
+                options.append((base / file.name).as_posix())
+        return options
+
+    def get_schema(self):
+        """Get schema to build UI.
+
+        Extends the base schema by injecting the available reference images as
+        ``enum`` options on the ``reference_images`` field, so the frontend renders
+        a multiselect dropdown instead of free-text inputs.
+        """
+        schema = super().get_schema()
+        options = self._reference_image_options()
+
+        def inject(node):
+            if isinstance(node, dict):
+                props = node.get("properties")
+                if isinstance(props, dict) and "reference_images" in props:
+                    field = props["reference_images"]
+                    if isinstance(field, dict) and isinstance(field.get("items"), dict):
+                        field["items"]["enum"] = options
+                for value in node.values():
+                    inject(value)
+            elif isinstance(node, list):
+                for value in node:
+                    inject(value)
+
+        inject(schema)
+        return schema
