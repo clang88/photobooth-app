@@ -311,6 +311,7 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         main_mime = f"image/{self._config.image_generation.input_image_format}"
 
         if not reference_paths:
+            logger.info("No reference images provided, using simple two-part layout.")
             return [
                 {"text": style_prompt},
                 {"inlineData": {"mimeType": main_mime, "data": main_b64}},
@@ -325,7 +326,8 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
             ref_b64 = self._image_to_base64(ref_image)
             # .jpg and .jpeg both map to image/jpeg
             ref_mime = "image/jpeg" if ref_path.suffix.lower() in (".jpg", ".jpeg") else f"image/{ref_path.suffix.lower().lstrip('.')}"
-            parts.append({"text": f"Reference photo {index}:"})
+            logger.debug(f"Adding reference image {index}: {ref_path}")
+            parts.append({"text": f"Reference image {index}:"})
             parts.append({"inlineData": {"mimeType": ref_mime, "data": ref_b64}})
         parts.append({"text": style_prompt})
         return parts
@@ -424,7 +426,15 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         for attempt in range(1 + max_retries):
             try:
                 logger.info(f"Sending request to Gemini API with model '{model}' (attempt {attempt + 1}/{1 + max_retries})...")
-                logger.debug(f"Prompt: {style_prompt}")
+                full_prompt = []
+                for part in content_parts:
+                    part_key = list(part.keys())[0]
+                    part_value = part[part_key]
+                    if part_key == "text":
+                        full_prompt.append(part_value)
+                    elif part_key == "inlineData":
+                        full_prompt.append(str(part_value)[:50] + "...")
+                logger.debug(f"Prompt: {full_prompt}")
 
                 session = requests.Session()
                 response = session.post(api_url, headers=headers, json=payload, timeout=self._config.connection.timeout_seconds)

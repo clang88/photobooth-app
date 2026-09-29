@@ -147,7 +147,7 @@ class FilterNanobananaConfig(BaseConfig):
             ),
             StylePrompt(
                 style_name="chibi_musicians",
-                prompt="Put all the people in the image on a music stage, playing instruments, while keeping their faces and expressions recognizable and the poses unchanged. Do it in a chibi cute anime style.",
+                prompt="Put all the people in the main image on a music stage, playing instruments, while keeping their faces and expressions recognizable and the poses unchanged. Transform it to look exactly like the characters in reference photo 1.",
                 reference_images=["plugins/filter_nanobanana/reference_images/chibi.jpg"],
             ),
             StylePrompt(
