@@ -2,6 +2,7 @@ import base64
 import hashlib
 import io
 import logging
+import mimetypes
 import random
 import textwrap
 from pathlib import Path
@@ -103,6 +104,14 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         except Exception as exc:
             logger.error(f"Failed to apply AI filter '{filter_type}': {exc}")
             raise
+
+    def _get_mime_type(self, file_path: Path) -> str:
+        """Safely derive MIME type for image files."""
+        mime, _ = mimetypes.guess_type(file_path)
+        if mime and mime.startswith("image/"):
+            return mime
+        # Fallback default
+        return "image/jpeg"
 
     def _generate_preview_image(self, filter_type: str) -> Image.Image:
         """Generate a placeholder preview image for a filter style."""
@@ -307,9 +316,11 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
         interleaved layout is used: a labeled main photo, one labeled reference
         photo each, and the style prompt as the final task-instructions block.
         """
+
         main_b64 = self._image_to_base64(image)
         main_mime = f"image/{self._config.image_generation.input_image_format}"
 
+        # Legacy behavior Prompt + Single Image
         if not reference_paths:
             logger.info("No reference images provided, using simple two-part layout.")
             return [
@@ -317,19 +328,35 @@ class FilterNanobanana(BaseFilter[FilterNanobananaConfig]):
                 {"inlineData": {"mimeType": main_mime, "data": main_b64}},
             ]
 
+        # Interleaved layout for main photo + reference images
         parts: list[dict] = [
-            {"text": "Main photo to modify:"},
+            {"text": (f"{style_prompt}")},
+            {"text": "[MAIN SUBJECT PHOTO]:"},
             {"inlineData": {"mimeType": main_mime, "data": main_b64}},
         ]
-        for index, ref_path in enumerate(reference_paths, start=1):
-            ref_image = Image.open(ref_path)
-            ref_b64 = self._image_to_base64(ref_image)
-            # .jpg and .jpeg both map to image/jpeg
-            ref_mime = "image/jpeg" if ref_path.suffix.lower() in (".jpg", ".jpeg") else f"image/{ref_path.suffix.lower().lstrip('.')}"
-            logger.debug(f"Adding reference image {index}: {ref_path}")
-            parts.append({"text": f"Reference image {index}:"})
-            parts.append({"inlineData": {"mimeType": ref_mime, "data": ref_b64}})
-        parts.append({"text": style_prompt})
+        # 2. Append reference images if provided
+        if reference_paths:
+            logger.info(f"Adding {len(reference_paths)} style reference image(s).")
+            for index, ref_path in enumerate(reference_paths, start=1):
+                with Image.open(ref_path) as ref_image:
+                    ref_b64 = self._image_to_base64(ref_image)
+
+                ref_mime = self._get_mime_type(ref_path)
+                logger.debug(f"Adding reference image {index}: {ref_path} ({ref_mime})")
+
+                parts.append({"text": f"[REFERENCE IMAGE {index}]:"})
+                parts.append({"inlineData": {"mimeType": ref_mime, "data": ref_b64}})
+
+            # 3. Final structural anchor to tie all images together
+            parts.append(
+                {
+                    "text": (
+                        "REINFORCEMENT DIRECTIVE: Render a final image featuring the "
+                        "people from [MAIN SUBJECT PHOTO]. Apply the [REFERENCE IMAGE ##] like described:\n"
+                        f"{style_prompt}"
+                    )
+                }
+            )
         return parts
 
     def _apply_gemini_filter(self, image: Image.Image, filter_type: str, preview: bool) -> Image.Image:

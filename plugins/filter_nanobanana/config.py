@@ -102,7 +102,7 @@ class FilterNanobananaConfig(BaseConfig):
         default=[
             StylePrompt(
                 style_name="1996",
-                prompt="Keep framing and faces unchanged. Dress the people in typical 1990s attire (oversized T-Shirts, colorful windbreakers, flannel shirts etc.). In the style of a throw-away film camera photo and imprint the date 08.10.1996 in the style of 90s disposable cameras. Maintain their exact faces and poses.",
+                prompt="Keep framing and faces unchanged. Dress the people in typical 1990s attire (oversized T-Shirts, colorful windbreakers, flannel shirts etc.) and give them 90s hairdos. In the style of a throw-away film camera photo and imprint the date 08.10.1996 like on 90s disposable cameras. Maintain their exact faces and poses.",
             ),
             StylePrompt(
                 style_name="kaleidoscope",
@@ -146,8 +146,8 @@ class FilterNanobananaConfig(BaseConfig):
                 prompt="Add realistic technical hiking gear and backpacks to the people in the photo. Keep the framing, faces, expressions, and poses completely unchanged, but replace the background with a scenic mountain landscape. Faces need to stay completely unchanged!",
             ),
             StylePrompt(
-                style_name="chibi_musicians",
-                prompt="Put all the people in the main image on a music stage, playing instruments, while keeping their faces and expressions recognizable and the poses unchanged. Transform it to look exactly like the characters in reference photo 1.",
+                style_name="chibi",
+                prompt="Transform the people in the main image into super deformed chibi characters while keeping their faces and expressions recognizable and the poses unchanged. Make sure to always show the full body, even if it is cut off in the main image.Copy the style exactly from the reference image 1.",
                 reference_images=["plugins/filter_nanobanana/reference_images/chibi.jpg"],
             ),
             StylePrompt(
@@ -157,6 +157,17 @@ class FilterNanobananaConfig(BaseConfig):
             StylePrompt(
                 style_name="8-bit",
                 prompt="Redraw all people as a JRPG 8-bit party top-down view. Keep them recognizable but draw them in a pixalated 8-bit style. Don't add names to the characters.",
+            ),
+            StylePrompt(
+                style_name="metal_slug",
+                prompt='Transform this image into a homage to the Metal Slug character select screen with highly stylized pixelated portraits of each person in the frame. Keep their expressions recognizable but draw them in the exaggerated, colorful sprite character portraits style with dramatic lighting like in the reference image. Add "P1", "P2", etc. above each person like the game\'s selection screen, and add funny nick-names based on their features under the portraits. Follow the style of the faces and select screen exactly from the reference image 1.',
+                reference_images=[
+                    "plugins/filter_nanobanana/reference_images/metal_slug_select.jpg",
+                ],
+            ),
+            StylePrompt(
+                style_name="matrix",
+                prompt="Make the people in the image look like they come straight out of the Matrix, wearing leather jackets, sunglasses, but keep their faces and expressions recognizable and the poses unchanged. Slight green color grading over the image reminiscent of the movies.",
             ),
             StylePrompt(
                 style_name="impressionist",
