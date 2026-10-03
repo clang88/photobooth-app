@@ -8,6 +8,7 @@ Usage:
     uv run python helpers/detect_transparent_frames.py image.png --gap 30
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from PIL import Image
 def detect_transparent_frames(
     image_path: str,
     min_area: int = 5000,
-    gap: int = 30,
+    gap: int = 0,
 ) -> tuple[list[dict], int, int]:
     """
     Detect rectangular regions of transparent pixels in the image.
@@ -239,20 +240,24 @@ def to_collage_config(frames: list[dict], canvas_width: int = 1024, canvas_heigh
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python detect_transparent_frames.py <image.png>")
-        sys.exit(1)
-
-    image_path = sys.argv[1]
-    path = Path(image_path)
+    parser = argparse.ArgumentParser(description="Detect transparent frame regions in a PNG image.")
+    parser.add_argument("image_path", type=Path, help="Path to the PNG image")
+    parser.add_argument("--gap", "-gap", type=int, default=30, help="Dilation radius in pixels; 0 disables dilation (default: 30)")
+    parser.add_argument("--min-area", type=int, default=5000, help="Minimum frame bounding-box area in pixels (default: 5000)")
+    args = parser.parse_args()
+    if args.gap < 0:
+        parser.error("--gap must be non-negative")
+    if args.min_area < 0:
+        parser.error("--min-area must be non-negative")
+    path = args.image_path
 
     if not path.exists():
-        print(f"Error: File not found: {image_path}")
+        print(f"Error: File not found: {path}")
         sys.exit(1)
 
     print(f"Analyzing: {path.absolute()}\n")
 
-    frames, canvas_w, canvas_h = detect_transparent_frames(str(path))
+    frames, canvas_w, canvas_h = detect_transparent_frames(str(path), min_area=args.min_area, gap=args.gap)
 
     if not frames:
         print("No transparent frame regions detected.")
